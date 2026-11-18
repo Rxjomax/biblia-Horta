@@ -1,6 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Check, Download, ImagePlus, Share2, X } from 'lucide-react';
-import { CHURCH_INFO } from '../data/churchData';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, Compass, Download, ImagePlus, Search, Share2, X } from 'lucide-react';
+import {
+  SHARE_BACKGROUNDS,
+  SHARE_QUICK_TOPICS,
+  type ShareBackgroundPreset,
+  type ShareCategoryFilter,
+  filterShareBackgrounds,
+  normalizeShareText,
+  suggestBackgroundForVerse,
+} from '../utils/shareBackgrounds';
 
 interface VerseShareModalProps {
   isOpen: boolean;
@@ -11,134 +19,6 @@ interface VerseShareModalProps {
 }
 
 type CardFormat = 'square' | 'story';
-
-interface ShareBackgroundPreset {
-  id: string;
-  label: string;
-  subtitle: string;
-  type: 'photo' | 'theme';
-  imageUrl?: string;
-  bgGradient: [string, string, string];
-  scrim: [string, string, string];
-  accentColor: string;
-  textColor: string;
-  mutedColor: string;
-  borderColor: string;
-  swatchStyle: string;
-}
-
-const SHARE_BG_PRESETS: ShareBackgroundPreset[] = [
-  {
-    id: 'amanhecer-pico',
-    label: 'Amanhecer',
-    subtitle: 'Fotografia · Nascer do Sol',
-    type: 'photo',
-    imageUrl: CHURCH_INFO.images.shareDawn,
-    bgGradient: ['#2B1E19', '#191417', '#0D1320'],
-    scrim: ['rgba(16, 20, 30, 0.68)', 'rgba(18, 22, 34, 0.56)', 'rgba(10, 14, 24, 0.86)'],
-    accentColor: '#ECCB7B',
-    textColor: '#FAF8F4',
-    mutedColor: 'rgba(250, 248, 244, 0.82)',
-    borderColor: 'rgba(236, 203, 123, 0.48)',
-    swatchStyle: 'from-[#A66E4E] to-[#1D2538]',
-  },
-  {
-    id: 'luz-montanhas',
-    label: 'Montanhas',
-    subtitle: 'Fotografia · Montes e Mar',
-    type: 'photo',
-    imageUrl: CHURCH_INFO.images.shareMountainLight,
-    bgGradient: ['#14262E', '#0F1E28', '#09131C'],
-    scrim: ['rgba(10, 20, 28, 0.68)', 'rgba(12, 24, 34, 0.56)', 'rgba(8, 16, 24, 0.88)'],
-    accentColor: '#E5BE6D',
-    textColor: '#FAF8F4',
-    mutedColor: 'rgba(250, 248, 244, 0.82)',
-    borderColor: 'rgba(212, 168, 78, 0.48)',
-    swatchStyle: 'from-[#2D4D3E] to-[#102030]',
-  },
-  {
-    id: 'biblia-janela',
-    label: 'Palavra & Luz',
-    subtitle: 'Fotografia · Bíblia e Oceano',
-    type: 'photo',
-    imageUrl: CHURCH_INFO.images.shareOpenBible,
-    bgGradient: ['#1E1915', '#141316', '#0B0E14'],
-    scrim: ['rgba(15, 14, 16, 0.72)', 'rgba(16, 16, 20, 0.60)', 'rgba(10, 12, 18, 0.90)'],
-    accentColor: '#ECCB7B',
-    textColor: '#FAF8F4',
-    mutedColor: 'rgba(250, 248, 244, 0.82)',
-    borderColor: 'rgba(236, 203, 123, 0.45)',
-    swatchStyle: 'from-[#4F3B27] to-[#131722]',
-  },
-  {
-    id: 'faial-mar',
-    label: 'Mar do Faial',
-    subtitle: 'Fotografia · Costa Atlântica',
-    type: 'photo',
-    imageUrl: CHURCH_INFO.images.heroVerse,
-    bgGradient: ['#0E1C33', '#13294B', '#091324'],
-    scrim: ['rgba(10, 20, 36, 0.72)', 'rgba(12, 24, 44, 0.56)', 'rgba(9, 18, 34, 0.88)'],
-    accentColor: '#E5BE6D',
-    textColor: '#FAF8F4',
-    mutedColor: 'rgba(250, 248, 244, 0.80)',
-    borderColor: 'rgba(212, 168, 78, 0.45)',
-    swatchStyle: 'from-[#173763] to-[#0C1A30]',
-  },
-  {
-    id: 'capela-horta',
-    label: 'Capela Horta',
-    subtitle: 'Fotografia · Comunidade',
-    type: 'photo',
-    imageUrl: CHURCH_INFO.images.sanctuary,
-    bgGradient: ['#231A12', '#17120D', '#0F0B08'],
-    scrim: ['rgba(20, 15, 10, 0.74)', 'rgba(24, 18, 12, 0.58)', 'rgba(15, 11, 8, 0.88)'],
-    accentColor: '#ECCB7B',
-    textColor: '#FAF8F4',
-    mutedColor: 'rgba(250, 248, 244, 0.80)',
-    borderColor: 'rgba(236, 203, 123, 0.45)',
-    swatchStyle: 'from-[#4A3520] to-[#1F160E]',
-  },
-  {
-    id: 'escrituras',
-    label: 'Estudo',
-    subtitle: 'Fotografia · Mesa de Estudo',
-    type: 'photo',
-    imageUrl: CHURCH_INFO.images.studyStill,
-    bgGradient: ['#1E242B', '#141A22', '#0D1117'],
-    scrim: ['rgba(16, 22, 31, 0.76)', 'rgba(18, 25, 35, 0.62)', 'rgba(12, 17, 25, 0.90)'],
-    accentColor: '#E5BE6D',
-    textColor: '#FAF8F4',
-    mutedColor: 'rgba(250, 248, 244, 0.80)',
-    borderColor: 'rgba(212, 168, 78, 0.45)',
-    swatchStyle: 'from-[#3B4754] to-[#171E26]',
-  },
-  {
-    id: 'atlantico-profundo',
-    label: 'Atlântico',
-    subtitle: 'Editorial · Noite no Canal',
-    type: 'theme',
-    bgGradient: ['#193A69', '#13294B', '#091527'],
-    scrim: ['rgba(19, 41, 75, 0.15)', 'rgba(15, 31, 58, 0.25)', 'rgba(9, 21, 39, 0.45)'],
-    accentColor: '#E5BE6D',
-    textColor: '#FAF8F4',
-    mutedColor: 'rgba(250, 248, 244, 0.78)',
-    borderColor: 'rgba(212, 168, 78, 0.42)',
-    swatchStyle: 'from-[#193A69] to-[#0B192E]',
-  },
-  {
-    id: 'papel-marfim',
-    label: 'Papel Marfim',
-    subtitle: 'Clássico · Papel de Imprensa',
-    type: 'theme',
-    bgGradient: ['#FAF8F4', '#F3EFE6', '#EAE3D5'],
-    scrim: ['rgba(250, 248, 244, 0)', 'rgba(243, 239, 230, 0)', 'rgba(234, 227, 213, 0)'],
-    accentColor: '#8C6218',
-    textColor: '#13294B',
-    mutedColor: 'rgba(20, 30, 46, 0.72)',
-    borderColor: 'rgba(19, 41, 75, 0.22)',
-    swatchStyle: 'from-[#FAF8F4] to-[#E5DEC9]',
-  },
-];
 
 function drawIebhWatermark(
   ctx: CanvasRenderingContext2D,
@@ -183,15 +63,83 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
   versionLabel,
 }) => {
   const [format, setFormat] = useState<CardFormat>('square');
-  const [selectedPresetId, setSelectedPresetId] = useState<string>(SHARE_BG_PRESETS[0].id);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<ShareCategoryFilter>('all');
+  const [selectedPresetId, setSelectedPresetId] = useState<string>(SHARE_BACKGROUNDS[0].id);
+  const [matchReason, setMatchReason] = useState<string>('');
   const [customPhotoUrl, setCustomPhotoUrl] = useState<string>('');
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [statusMessage, setStatusMessage] = useState<string>('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const filteredPresets = useMemo(
+    () => filterShareBackgrounds(searchQuery, categoryFilter, SHARE_BACKGROUNDS),
+    [searchQuery, categoryFilter]
+  );
+
   const activePreset =
-    SHARE_BG_PRESETS.find((p) => p.id === selectedPresetId) ?? SHARE_BG_PRESETS[0];
+    SHARE_BACKGROUNDS.find((p) => p.id === selectedPresetId) ?? SHARE_BACKGROUNDS[0];
+
+  // Auto-suggest an atmospheric match when opening for a verse
+  useEffect(() => {
+    if (!isOpen) return;
+    const suggested = suggestBackgroundForVerse(verseText, referenceLabel, SHARE_BACKGROUNDS);
+    setSelectedPresetId(suggested.preset.id);
+    setSearchQuery('');
+    setCategoryFilter('all');
+    setMatchReason(
+      suggested.matchedKeyword
+        ? `Sugerido pelo tema «${suggested.matchedKeyword}»`
+        : 'Sugerido para este versículo'
+    );
+  }, [isOpen, referenceLabel, verseText]);
+
+  // Escape key closes dialog cleanly
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
+  const handleApplyKeywordQuery = (nextQuery: string) => {
+    setSearchQuery(nextQuery);
+    const trimmed = nextQuery.trim();
+    if (!trimmed) {
+      setMatchReason('');
+      return;
+    }
+    const matches = filterShareBackgrounds(trimmed, categoryFilter, SHARE_BACKGROUNDS);
+    if (matches.length > 0) {
+      setSelectedPresetId(matches[0].id);
+      setMatchReason(`Combinado com «${trimmed}»`);
+    } else {
+      setMatchReason('');
+    }
+  };
+
+  const handleCategoryChange = (nextCategory: ShareCategoryFilter) => {
+    setCategoryFilter(nextCategory);
+    const matches = filterShareBackgrounds(searchQuery, nextCategory, SHARE_BACKGROUNDS);
+    if (matches.length > 0 && !matches.some((m) => m.id === selectedPresetId)) {
+      setSelectedPresetId(matches[0].id);
+    }
+  };
+
+  const handleSuggestByVerse = () => {
+    setSearchQuery('');
+    setCategoryFilter('all');
+    const suggested = suggestBackgroundForVerse(verseText, referenceLabel, SHARE_BACKGROUNDS);
+    setSelectedPresetId(suggested.preset.id);
+    setMatchReason(
+      suggested.matchedKeyword
+        ? `Combinado com «${suggested.matchedKeyword}» do versículo`
+        : 'Sugestão para o versículo'
+    );
+  };
 
   const handleUploadCustomPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -201,6 +149,7 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
       if (typeof reader.result === 'string') {
         setCustomPhotoUrl(reader.result);
         setSelectedPresetId('custom-photo');
+        setMatchReason('Fotografia selecionada do dispositivo');
       }
     };
     reader.readAsDataURL(file);
@@ -222,12 +171,13 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
     const isCustom = selectedPresetId === 'custom-photo' && Boolean(customPhotoUrl);
     const preset: ShareBackgroundPreset = isCustom
       ? {
-          ...SHARE_BG_PRESETS[0],
+          ...SHARE_BACKGROUNDS[0],
           id: 'custom-photo',
           label: 'Foto Própria',
           subtitle: 'Personalizada',
           type: 'photo',
           imageUrl: customPhotoUrl,
+          isLight: false,
         }
       : activePreset;
 
@@ -277,7 +227,7 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
       ctx.strokeRect(inset, inset, width - inset * 2, height - inset * 2);
 
       // Top IEBH Emblem watermark
-      const isLightCard = preset.id === 'papel-marfim';
+      const isLightCard = Boolean(preset.isLight);
       drawIebhWatermark(
         ctx,
         width / 2,
@@ -357,7 +307,16 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, format, selectedPresetId, customPhotoUrl, activePreset, referenceLabel, verseText, versionLabel]);
+  }, [
+    isOpen,
+    format,
+    selectedPresetId,
+    customPhotoUrl,
+    activePreset,
+    referenceLabel,
+    verseText,
+    versionLabel,
+  ]);
 
   if (!isOpen) return null;
 
@@ -407,6 +366,10 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
     }
   };
 
+  const photoCount = SHARE_BACKGROUNDS.filter((p) => p.type === 'photo').length;
+  const themeCount = SHARE_BACKGROUNDS.filter((p) => p.type === 'theme').length;
+  const normalizedCurrentQuery = normalizeShareText(searchQuery);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4"
@@ -415,8 +378,8 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
       aria-labelledby="share-modal-title"
     >
       <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl bg-[#FAF8F4] dark:bg-[#131E30] border border-[#141E2E]/10 dark:border-white/10 p-4 sm:p-6 shadow-2xl">
-        <div className="flex items-center justify-between gap-4">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
             <h2
               id="share-modal-title"
               className="font-display text-xl font-semibold text-[#141E2E] dark:text-[#F2EFE9]"
@@ -424,14 +387,15 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
               Partilhar como Imagem
             </h2>
             <p className="text-xs text-[#556173] dark:text-[#A3B0C2] mt-0.5">
-              {referenceLabel} · {versionLabel} · Escolha a fotografia ou fundo abaixo
+              {referenceLabel} · {versionLabel}
+              {matchReason ? ` · ${matchReason}` : ''}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Fechar janela de partilha"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-[#556173] dark:text-[#A3B0C2] hover:bg-black/5 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+            className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-lg text-[#556173] dark:text-[#A3B0C2] hover:bg-black/5 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
           >
             <X className="w-5 h-5" />
           </button>
@@ -463,97 +427,216 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
           </button>
         </div>
 
-        {/* Photo & Editorial Background Selector */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between gap-2 mb-2">
+        {/* Keyword search + smart verse match + gallery upload */}
+        <div className="mt-4 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-semibold text-[#141E2E] dark:text-[#F2EFE9]">
-              Fotografia e Estilo de Fundo
+              Repertório de Fundos ({SHARE_BACKGROUNDS.length})
             </span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleUploadCustomPhoto}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="min-h-[38px] px-3 py-1.5 rounded-lg border border-[#13294B]/20 dark:border-white/15 text-xs font-medium text-[#13294B] dark:text-[#D4A84E] hover:bg-black/5 dark:hover:bg-white/5 inline-flex items-center gap-1.5 transition-colors"
-            >
-              <ImagePlus className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Usar foto da galeria</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSuggestByVerse}
+                className="min-h-[40px] px-3 py-1.5 rounded-lg border border-[#B8862D]/35 bg-[#EFE9DD]/70 dark:bg-[#1B2B44] text-xs font-medium text-[#13294B] dark:text-[#ECCB7B] hover:bg-[#EFE9DD] dark:hover:bg-[#233654] inline-flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+              >
+                <Compass className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Combinar com versículo</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleUploadCustomPhoto}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="min-h-[40px] px-3 py-1.5 rounded-lg border border-[#13294B]/20 dark:border-white/15 text-xs font-medium text-[#13294B] dark:text-[#D4A84E] hover:bg-black/5 dark:hover:bg-white/5 inline-flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+              >
+                <ImagePlus className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Foto da galeria</span>
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {SHARE_BG_PRESETS.map((preset) => {
-              const isSelected = selectedPresetId === preset.id;
+          {/* Keyword input + Category tabs */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+            <div className="relative sm:col-span-6">
+              <Search
+                className="w-4 h-4 text-[#556173] dark:text-[#A3B0C2] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                aria-hidden="true"
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleApplyKeywordQuery(e.target.value)}
+                placeholder="Palavra-chave (paz, luz, mar)..."
+                aria-label="Filtrar fundos por palavra-chave"
+                className="w-full min-h-[44px] pl-9 pr-9 py-2 rounded-xl border border-[#141E2E]/15 dark:border-white/15 bg-white dark:bg-[#0C1320] text-base sm:text-sm text-[#141E2E] dark:text-[#F2EFE9] placeholder:text-[#556173]/75 dark:placeholder:text-[#A3B0C2]/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => handleApplyKeywordQuery('')}
+                  aria-label="Limpar palavra-chave"
+                  className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-[#556173] dark:text-[#A3B0C2] hover:bg-black/5 dark:hover:bg-white/5 absolute right-1 top-1/2 -translate-y-1/2"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="sm:col-span-6 flex items-center gap-1 p-1 rounded-xl bg-[#EAE4D9]/80 dark:bg-[#0C1320]">
+              {(
+                [
+                  { id: 'all', label: `Todos (${SHARE_BACKGROUNDS.length})` },
+                  { id: 'photo', label: `Fotos (${photoCount})` },
+                  { id: 'theme', label: `Editoriais (${themeCount})` },
+                ] as const
+              ).map((tab) => {
+                const active = categoryFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => handleCategoryChange(tab.id)}
+                    aria-pressed={active}
+                    className={`flex-1 min-h-[38px] px-2 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D] ${
+                      active
+                        ? 'bg-[#FAF8F4] dark:bg-[#1B2B44] text-[#13294B] dark:text-[#FAF8F4] shadow-xs'
+                        : 'text-[#556173] dark:text-[#A3B0C2] hover:text-[#13294B] dark:hover:text-[#FAF8F4]'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Quick thematic filter buttons */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            {SHARE_QUICK_TOPICS.map((topic) => {
+              const isTopicActive = normalizedCurrentQuery === normalizeShareText(topic.query);
               return (
                 <button
-                  key={preset.id}
+                  key={topic.query}
                   type="button"
-                  onClick={() => setSelectedPresetId(preset.id)}
-                  aria-pressed={isSelected}
-                  className={`min-h-[54px] p-2 rounded-xl border text-left transition-all flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D] ${
-                    isSelected
-                      ? 'border-[#13294B] dark:border-[#D4A84E] bg-[#EFE9DD] dark:bg-[#1B2B44] ring-1 ring-[#13294B] dark:ring-[#D4A84E]'
-                      : 'border-[#141E2E]/12 dark:border-white/12 bg-[#FAF8F4] dark:bg-[#0C1320] hover:bg-[#EFE9DD]/60 dark:hover:bg-[#17253B]'
+                  onClick={() =>
+                    handleApplyKeywordQuery(isTopicActive ? '' : topic.query)
+                  }
+                  aria-pressed={isTopicActive}
+                  className={`shrink-0 min-h-[36px] px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D] ${
+                    isTopicActive
+                      ? 'border-[#13294B] bg-[#13294B] text-[#FAF8F4] dark:border-[#D4A84E] dark:bg-[#D4A84E] dark:text-[#0C1320]'
+                      : 'border-[#141E2E]/15 dark:border-white/15 bg-transparent text-[#3F4B5E] dark:text-[#C8D1DE] hover:bg-[#EFE9DD] dark:hover:bg-[#1B2B44]'
                   }`}
                 >
-                  <span
-                    className={`w-9 h-9 rounded-lg shrink-0 bg-gradient-to-br ${preset.swatchStyle} border border-black/10 dark:border-white/15 overflow-hidden flex items-center justify-center`}
-                  >
-                    {preset.imageUrl ? (
-                      <img
-                        src={preset.imageUrl}
-                        alt=""
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : null}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-xs font-semibold text-[#141E2E] dark:text-[#F2EFE9] truncate">
-                      {preset.label}
-                    </span>
-                    <span className="block text-[10px] text-[#556173] dark:text-[#A3B0C2] truncate">
-                      {preset.type === 'photo' ? 'Fotografia' : 'Editorial'}
-                    </span>
-                  </span>
+                  {topic.label}
                 </button>
               );
             })}
+          </div>
 
-            {customPhotoUrl && (
+          {/* Repertoire grid */}
+          {filteredPresets.length === 0 && !customPhotoUrl ? (
+            <div className="rounded-xl border border-dashed border-[#141E2E]/20 dark:border-white/15 p-4 text-center">
+              <p className="text-xs text-[#556173] dark:text-[#A3B0C2]">
+                Nenhum fundo corresponde a «{searchQuery}».
+              </p>
               <button
                 type="button"
-                onClick={() => setSelectedPresetId('custom-photo')}
-                aria-pressed={selectedPresetId === 'custom-photo'}
-                className={`min-h-[54px] p-2 rounded-xl border text-left transition-all flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D] ${
-                  selectedPresetId === 'custom-photo'
-                    ? 'border-[#13294B] dark:border-[#D4A84E] bg-[#EFE9DD] dark:bg-[#1B2B44] ring-1 ring-[#13294B] dark:ring-[#D4A84E]'
-                    : 'border-[#141E2E]/12 dark:border-white/12 bg-[#FAF8F4] dark:bg-[#0C1320]'
-                }`}
+                onClick={() => {
+                  setSearchQuery('');
+                  setCategoryFilter('all');
+                }}
+                className="mt-2 min-h-[38px] px-3 py-1.5 rounded-lg bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] text-xs font-medium"
               >
-                <span className="w-9 h-9 rounded-lg shrink-0 overflow-hidden border border-black/10 dark:border-white/15">
-                  <img
-                    src={customPhotoUrl}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-xs font-semibold text-[#141E2E] dark:text-[#F2EFE9] truncate">
-                    Foto Própria
-                  </span>
-                  <span className="block text-[10px] text-[#556173] dark:text-[#A3B0C2] truncate">
-                    Personalizada
-                  </span>
-                </span>
+                Mostrar todos os {SHARE_BACKGROUNDS.length} fundos
               </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-44 overflow-y-auto pr-1">
+              {filteredPresets.map((preset) => {
+                const isSelected = selectedPresetId === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPresetId(preset.id);
+                      setMatchReason(
+                        preset.type === 'photo'
+                          ? `Fotografia · ${preset.subtitle}`
+                          : preset.subtitle
+                      );
+                    }}
+                    aria-pressed={isSelected}
+                    className={`min-h-[56px] p-2 rounded-xl border text-left transition-all flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D] ${
+                      isSelected
+                        ? 'border-[#13294B] dark:border-[#D4A84E] bg-[#EFE9DD] dark:bg-[#1B2B44] ring-1 ring-[#13294B] dark:ring-[#D4A84E]'
+                        : 'border-[#141E2E]/12 dark:border-white/12 bg-[#FAF8F4] dark:bg-[#0C1320] hover:bg-[#EFE9DD]/60 dark:hover:bg-[#17253B]'
+                    }`}
+                  >
+                    <span
+                      className={`w-10 h-10 rounded-lg shrink-0 bg-gradient-to-br ${preset.swatchStyle} border border-black/10 dark:border-white/15 overflow-hidden flex items-center justify-center`}
+                    >
+                      {preset.imageUrl ? (
+                        <img
+                          src={preset.imageUrl}
+                          alt={preset.label}
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : null}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold text-[#141E2E] dark:text-[#F2EFE9] leading-tight">
+                        {preset.label}
+                      </span>
+                      <span className="block text-[11px] text-[#556173] dark:text-[#A3B0C2] truncate mt-0.5">
+                        {preset.subtitle}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+
+              {customPhotoUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPresetId('custom-photo');
+                    setMatchReason('Fotografia selecionada do dispositivo');
+                  }}
+                  aria-pressed={selectedPresetId === 'custom-photo'}
+                  className={`min-h-[56px] p-2 rounded-xl border text-left transition-all flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D] ${
+                    selectedPresetId === 'custom-photo'
+                      ? 'border-[#13294B] dark:border-[#D4A84E] bg-[#EFE9DD] dark:bg-[#1B2B44] ring-1 ring-[#13294B] dark:ring-[#D4A84E]'
+                      : 'border-[#141E2E]/12 dark:border-white/12 bg-[#FAF8F4] dark:bg-[#0C1320]'
+                  }`}
+                >
+                  <span className="w-10 h-10 rounded-lg shrink-0 overflow-hidden border border-black/10 dark:border-white/15">
+                    <img
+                      src={customPhotoUrl}
+                      alt="Foto Própria"
+                      className="w-full h-full object-cover"
+                    />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-semibold text-[#141E2E] dark:text-[#F2EFE9] leading-tight">
+                      Foto Própria
+                    </span>
+                    <span className="block text-[11px] text-[#556173] dark:text-[#A3B0C2] truncate mt-0.5">
+                      Personalizada
+                    </span>
+                  </span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <canvas ref={canvasRef} className="hidden" />
@@ -564,12 +647,12 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
               src={previewUrl}
               alt={`Cartão visual com ${referenceLabel}`}
               className={`rounded-lg shadow-md object-contain ${
-                format === 'square' ? 'max-h-[320px] aspect-square' : 'max-h-[360px] aspect-[9/16]'
+                format === 'square' ? 'max-h-[260px] aspect-square' : 'max-h-[300px] aspect-[9/16]'
               }`}
             />
           ) : (
             <div className="h-64 flex items-center justify-center text-sm text-[#556173] dark:text-[#A3B0C2]">
-              A gerar cartão visual...
+              A preparar cartão visual...
             </div>
           )}
         </div>
@@ -606,4 +689,3 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
     </div>
   );
 };
-

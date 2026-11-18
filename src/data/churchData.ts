@@ -38,6 +38,12 @@ export const CHURCH_INFO = {
     shareDawn: '/src/assets/images/share_azores_dawn_1795021732763.jpg',
     shareMountainLight: '/src/assets/images/share_mountain_light_1795021784825.jpg',
     shareOpenBible: '/src/assets/images/share_open_bible_wood_1795021799993.jpg',
+    shareLighthouse: '/src/assets/images/share_azores_lighthouse_1795027295995.jpg',
+    shareCalmSunset: '/src/assets/images/share_calm_sunset_sea_1795027293905.jpg',
+    sharePastures: '/src/assets/images/share_green_pastures_mist_1795027301883.jpg',
+    shareStarryNight: '/src/assets/images/share_starry_ocean_night_1795027297060.jpg',
+    shareHydrangeas: '/src/assets/images/share_horta_hydrangeas_1795027296957.jpg',
+    shareCoastalPath: '/src/assets/images/share_coastal_olive_path_1795027300085.jpg',
   },
 };
 
