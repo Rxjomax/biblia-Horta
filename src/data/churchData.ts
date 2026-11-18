@@ -35,6 +35,9 @@ export const CHURCH_INFO = {
     heroVerse: '/src/assets/images/hero_verse_azores_1794862313200.jpg',
     sanctuary: '/src/assets/images/church_community_horta_1794862313212.jpg',
     studyStill: '/src/assets/images/bible_study_still_1794862314123.jpg',
+    shareDawn: '/src/assets/images/share_azores_dawn_1795021732763.jpg',
+    shareMountainLight: '/src/assets/images/share_mountain_light_1795021784825.jpg',
+    shareOpenBible: '/src/assets/images/share_open_bible_wood_1795021799993.jpg',
   },
 };
 

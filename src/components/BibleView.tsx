@@ -130,9 +130,10 @@ export const BibleView: React.FC<BibleViewProps> = ({
   const [isLoadingSecondary, setIsLoadingSecondary] = useState(false);
 
   const [showBookModal, setShowBookModal] = useState(false);
-  const [modalTestament, setModalTestament] = useState<'AT' | 'NT'>(currentBook.testament);
+  const [modalTestament, setModalTestament] = useState<'ALL' | 'AT' | 'NT'>(currentBook.testament);
   const [modalBookId, setModalBookId] = useState<string>(currentBook.id);
   const [modalBookFilter, setModalBookFilter] = useState('');
+  const [modalMobilePane, setModalMobilePane] = useState<'books' | 'chapters'>('books');
 
   const [showTypography, setShowTypography] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -290,9 +291,15 @@ export const BibleView: React.FC<BibleViewProps> = ({
           normalizeText(b.shortName).includes(normFilter)
         );
       }
+      if (modalTestament === 'ALL') return true;
       return b.testament === modalTestament;
     });
   }, [modalBookFilter, modalTestament]);
+
+  const neighboringBooks = useMemo(() => {
+    const start = Math.max(0, Math.min(currentBook.index - 2, BIBLE_BOOKS_CATALOG.length - 5));
+    return BIBLE_BOOKS_CATALOG.slice(start, start + 5);
+  }, [currentBook.index]);
 
   const activeModalBook = getBookMetaById(modalBookId) ?? currentBook;
 
@@ -307,8 +314,9 @@ export const BibleView: React.FC<BibleViewProps> = ({
               type="button"
               onClick={() => {
                 setModalBookId(currentBook.id);
-                setModalTestament(currentBook.testament);
+                setModalTestament('ALL');
                 setModalBookFilter('');
+                setModalMobilePane('books');
                 setShowBookModal(true);
               }}
               className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#EFE9DD] dark:bg-[#17253B] text-[#13294B] dark:text-[#F2EFE9] text-sm font-semibold hover:opacity-90 transition-opacity whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
@@ -643,7 +651,7 @@ export const BibleView: React.FC<BibleViewProps> = ({
 
       {/* Chapter Heading & Reading Surface */}
       <article className={parallelMode ? 'max-w-none' : 'max-w-[66ch] mx-auto'}>
-        <header className="pb-6 border-b border-[#141E2E]/10 dark:border-white/10">
+        <header className="pb-5 border-b border-[#141E2E]/10 dark:border-white/10">
           <p className="text-xs font-medium text-[#8C6218] dark:text-[#D4A84E]">
             {BIBLE_VERSIONS.find((v) => v.id === primaryVersion)?.name} ·{' '}
             {currentBook.testament === 'AT' ? 'Antigo Testamento' : 'Novo Testamento'}
@@ -654,6 +662,44 @@ export const BibleView: React.FC<BibleViewProps> = ({
           <p className="text-xs text-[#556173] dark:text-[#A3B0C2] mt-1.5 tabular-nums">
             Capítulo {safeChapter} de {currentBook.totalChapters} · {primaryVerses.length} versículos
           </p>
+
+          {/* Neighboring Books Bar: shows multiple books side by side for effortless switching */}
+          <nav
+            aria-label="Livros próximos na Bíblia"
+            className="mt-4 flex items-center gap-1.5 overflow-x-auto pb-1"
+          >
+            {neighboringBooks.map((nb) => {
+              const isCurrBook = nb.id === currentBook.id;
+              return (
+                <button
+                  key={nb.id}
+                  type="button"
+                  onClick={() => onNavigatePassage(nb.id, 1)}
+                  aria-current={isCurrBook ? 'true' : undefined}
+                  className={`min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D] ${
+                    isCurrBook
+                      ? 'bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] font-semibold'
+                      : 'border border-[#141E2E]/12 dark:border-white/12 text-[#3F4B5E] dark:text-[#C8D1DE] hover:bg-[#EFE9DD] dark:hover:bg-[#17253B]'
+                  }`}
+                >
+                  {nb.name}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => {
+                setModalBookId(currentBook.id);
+                setModalTestament('ALL');
+                setModalBookFilter('');
+                setModalMobilePane('books');
+                setShowBookModal(true);
+              }}
+              className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 text-[#8C6218] dark:text-[#D4A84E] hover:bg-[#EFE9DD]/70 dark:hover:bg-[#17253B] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+            >
+              Ver todos (66)
+            </button>
+          </nav>
         </header>
 
         {isLoadingPrimary && primaryVerses.length === 0 ? (
@@ -799,8 +845,8 @@ export const BibleView: React.FC<BibleViewProps> = ({
           aria-modal="true"
           aria-labelledby="book-selector-title"
         >
-          <div className="w-full sm:max-w-2xl max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-[#FAF8F4] dark:bg-[#131E30] border border-[#141E2E]/10 dark:border-white/10 shadow-2xl overflow-hidden">
-            <div className="p-5 border-b border-[#141E2E]/10 dark:border-white/10 space-y-3 shrink-0">
+          <div className="w-full sm:max-w-4xl max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-[#FAF8F4] dark:bg-[#131E30] border border-[#141E2E]/10 dark:border-white/10 shadow-2xl overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-[#141E2E]/10 dark:border-white/10 space-y-3 shrink-0">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2
@@ -810,7 +856,7 @@ export const BibleView: React.FC<BibleViewProps> = ({
                     Bíblia Completa · 66 Livros
                   </h2>
                   <p className="text-xs text-[#556173] dark:text-[#A3B0C2] mt-0.5">
-                    Escolha o livro e o capítulo que deseja ler
+                    Visualize vários livros em simultâneo e toque num livro para escolher o capítulo
                   </p>
                 </div>
                 <button
@@ -824,7 +870,21 @@ export const BibleView: React.FC<BibleViewProps> = ({
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2.5">
-                <div className="flex p-1 rounded-xl bg-[#EAE4D9] dark:bg-[#0C1320] shrink-0">
+                <div className="flex p-1 rounded-xl bg-[#EAE4D9] dark:bg-[#0C1320] shrink-0 overflow-x-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalTestament('ALL');
+                      setModalBookFilter('');
+                    }}
+                    className={`min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap ${
+                      modalTestament === 'ALL' && !modalBookFilter
+                        ? 'bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320]'
+                        : 'text-[#3F4B5E] dark:text-[#C8D1DE]'
+                    }`}
+                  >
+                    Todos (66)
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -837,7 +897,7 @@ export const BibleView: React.FC<BibleViewProps> = ({
                         : 'text-[#3F4B5E] dark:text-[#C8D1DE]'
                     }`}
                   >
-                    Antigo Testamento (39)
+                    Antigo (39)
                   </button>
                   <button
                     type="button"
@@ -851,40 +911,78 @@ export const BibleView: React.FC<BibleViewProps> = ({
                         : 'text-[#3F4B5E] dark:text-[#C8D1DE]'
                     }`}
                   >
-                    Novo Testamento (27)
+                    Novo (27)
                   </button>
                 </div>
 
                 <input
                   type="search"
                   value={modalBookFilter}
-                  onChange={(e) => setModalBookFilter(e.target.value)}
-                  placeholder="Filtrar livro (ex.: Isaías, 1 Coríntios)..."
+                  onChange={(e) => {
+                    setModalBookFilter(e.target.value);
+                    setModalMobilePane('books');
+                  }}
+                  placeholder="Filtrar livro (ex.: Isaías, Salmos, 1 Coríntios)..."
                   aria-label="Filtrar livros da Bíblia"
                   className="flex-1 min-h-[44px] px-3.5 rounded-xl border border-[#141E2E]/15 dark:border-white/15 bg-[#FAF8F4] dark:bg-[#0C1320] text-base sm:text-sm"
                 />
               </div>
+
+              {/* Mobile-only step toggle so 12–16 books fit comfortably at once without vertical clipping */}
+              <div className="flex md:hidden p-1 rounded-xl bg-[#EAE4D9] dark:bg-[#0C1320]">
+                <button
+                  type="button"
+                  onClick={() => setModalMobilePane('books')}
+                  className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    modalMobilePane === 'books'
+                      ? 'bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320]'
+                      : 'text-[#3F4B5E] dark:text-[#C8D1DE]'
+                  }`}
+                >
+                  Livros ({modalFilteredBooks.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalMobilePane('chapters')}
+                  className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    modalMobilePane === 'chapters'
+                      ? 'bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320]'
+                      : 'text-[#3F4B5E] dark:text-[#C8D1DE]'
+                  }`}
+                >
+                  Capítulos · {activeModalBook.name}
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 md:grid-cols-12 gap-5">
-              {/* Books Column */}
-              <div className="md:col-span-6 space-y-1 max-h-[46vh] md:max-h-[55vh] overflow-y-auto pr-1">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 grid grid-cols-1 md:grid-cols-12 gap-5">
+              {/* Multi-column Books Grid: displays 14–24+ books visibly side-by-side */}
+              <div
+                className={`md:col-span-7 grid-cols-2 sm:grid-cols-3 gap-2 content-start md:max-h-[58vh] overflow-y-auto pr-1 ${
+                  modalMobilePane === 'books' ? 'grid' : 'hidden md:grid'
+                }`}
+              >
                 {modalFilteredBooks.map((b) => {
                   const isSelected = b.id === activeModalBook.id;
                   return (
                     <button
                       key={b.id}
                       type="button"
-                      onClick={() => setModalBookId(b.id)}
-                      className={`w-full min-h-[44px] px-3.5 py-2 rounded-xl flex items-center justify-between text-sm transition-colors ${
+                      onClick={() => {
+                        setModalBookId(b.id);
+                        setModalMobilePane('chapters');
+                      }}
+                      className={`min-h-[52px] px-3 py-2 rounded-xl flex flex-col justify-between text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D] ${
                         isSelected
                           ? 'bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] font-semibold'
-                          : 'hover:bg-[#EFE9DD] dark:hover:bg-[#1B2B44] text-[#141E2E] dark:text-[#F2EFE9]'
+                          : 'border border-[#141E2E]/10 dark:border-white/10 bg-[#F4F0E8]/70 dark:bg-[#0C1320]/60 hover:bg-[#EFE9DD] dark:hover:bg-[#1B2B44] text-[#141E2E] dark:text-[#F2EFE9]'
                       }`}
                     >
-                      <span>{b.name}</span>
-                      <span className="text-xs opacity-75 tabular-nums">
-                        {b.totalChapters} cap.
+                      <span className="text-xs sm:text-sm font-medium leading-tight truncate w-full">
+                        {b.name}
+                      </span>
+                      <span className="text-[11px] opacity-75 tabular-nums mt-0.5">
+                        {b.shortName} · {b.totalChapters} cap.
                       </span>
                     </button>
                   );
@@ -892,11 +990,24 @@ export const BibleView: React.FC<BibleViewProps> = ({
               </div>
 
               {/* Chapters Grid for Selected Book */}
-              <div className="md:col-span-6 border-t md:border-t-0 md:border-l border-[#141E2E]/10 dark:border-white/10 pt-4 md:pt-0 md:pl-5">
-                <h3 className="font-display text-base font-semibold text-[#141E2E] dark:text-[#F2EFE9] mb-3">
-                  Capítulos de {activeModalBook.name}
-                </h3>
-                <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-[40vh] md:max-h-[50vh] overflow-y-auto pr-1">
+              <div
+                className={`md:col-span-5 md:border-l border-[#141E2E]/10 dark:border-white/10 md:pl-5 ${
+                  modalMobilePane === 'chapters' ? 'block' : 'hidden md:block'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <h3 className="font-display text-base font-semibold text-[#141E2E] dark:text-[#F2EFE9]">
+                    Capítulos de {activeModalBook.name}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setModalMobilePane('books')}
+                    className="md:hidden text-xs font-medium text-[#8C6218] dark:text-[#D4A84E] min-h-[36px] px-2"
+                  >
+                    ← Outros livros
+                  </button>
+                </div>
+                <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-5 gap-2 md:max-h-[54vh] overflow-y-auto pr-1">
                   {Array.from({ length: activeModalBook.totalChapters }, (_, i) => i + 1).map(
                     (chNum) => {
                       const isCurr =
