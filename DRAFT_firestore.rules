@@ -1,0 +1,669 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Phase 3: Global Hardened Primitives
+    // =========================================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'jm783311@gmail.com'
+      );
+    }
+
+    function userWorkspaceExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function isValidBibleVersion(ver) {
+      return ver is string && ver.size() <= 10 && ver in ['ARC', 'ARA', 'NVI', 'OL', 'A21', 'NAA', 'NTLH'];
+    }
+
+    // =========================================================================
+    // Validation Blueprints (Anti-Update-Gap)
+    // =========================================================================
+    function isValidAdminDoc(data) {
+      return data.keys().hasAll(['uid', 'role', 'createdAt']) &&
+        data.keys().hasOnly(['uid', 'role', 'createdAt']) &&
+        isValidId(data.uid) &&
+        data.role is string && data.role.size() <= 16 && data.role == 'admin' &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidUserWorkspace(data, userId) {
+      return data.keys().hasAll([
+          'ownerId',
+          'displayName',
+          'theme',
+          'bibleVersion',
+          'secondaryVersion',
+          'activePlanId',
+          'streak',
+          'lastReadDate',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'displayName',
+          'theme',
+          'bibleVersion',
+          'secondaryVersion',
+          'activePlanId',
+          'streak',
+          'lastReadDate',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.ownerId) &&
+        data.ownerId == request.auth.uid &&
+        data.ownerId == userId &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        data.theme is string && data.theme.size() <= 10 && data.theme in ['light', 'dark'] &&
+        isValidBibleVersion(data.bibleVersion) &&
+        isValidBibleVersion(data.secondaryVersion) &&
+        isValidId(data.activePlanId) && data.activePlanId.size() <= 80 &&
+        data.streak is int && data.streak >= 0 && data.streak <= 10000 &&
+        data.lastReadDate is string && data.lastReadDate.size() <= 20 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSermonNoteDoc(data, userId, noteId) {
+      return data.keys().hasAll([
+          'id',
+          'ownerId',
+          'title',
+          'preacher',
+          'date',
+          'content',
+          'updatedAtLabel',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'ownerId',
+          'title',
+          'preacher',
+          'date',
+          'content',
+          'updatedAtLabel',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) && data.id == noteId &&
+        isValidId(data.ownerId) && data.ownerId == request.auth.uid && data.ownerId == userId &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+        data.preacher is string && data.preacher.size() >= 1 && data.preacher.size() <= 120 &&
+        data.date is string && data.date.size() >= 1 && data.date.size() <= 40 &&
+        data.content is string && data.content.size() >= 1 && data.content.size() <= 8000 &&
+        data.updatedAtLabel is string && data.updatedAtLabel.size() >= 1 && data.updatedAtLabel.size() <= 40 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidVerseNoteDoc(data, userId, noteId) {
+      return data.keys().hasAll([
+          'id',
+          'ownerId',
+          'key',
+          'bookId',
+          'bookName',
+          'chapter',
+          'verse',
+          'text',
+          'updatedAtLabel',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'ownerId',
+          'key',
+          'bookId',
+          'bookName',
+          'chapter',
+          'verse',
+          'text',
+          'updatedAtLabel',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) && data.id == noteId &&
+        isValidId(data.ownerId) && data.ownerId == request.auth.uid && data.ownerId == userId &&
+        data.key is string && data.key.size() >= 3 && data.key.size() <= 80 &&
+        data.bookId is string && data.bookId.size() >= 1 && data.bookId.size() <= 50 &&
+        data.bookName is string && data.bookName.size() >= 1 && data.bookName.size() <= 60 &&
+        data.chapter is int && data.chapter >= 1 && data.chapter <= 150 &&
+        data.verse is int && data.verse >= 1 && data.verse <= 176 &&
+        data.text is string && data.text.size() >= 1 && data.text.size() <= 2000 &&
+        data.updatedAtLabel is string && data.updatedAtLabel.size() >= 1 && data.updatedAtLabel.size() <= 40 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidVerseBookmarkDoc(data, userId, bookmarkId) {
+      return data.keys().hasAll([
+          'id',
+          'ownerId',
+          'key',
+          'bookId',
+          'bookName',
+          'chapter',
+          'verse',
+          'theme',
+          'createdAtLabel',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'ownerId',
+          'key',
+          'bookId',
+          'bookName',
+          'chapter',
+          'verse',
+          'theme',
+          'createdAtLabel',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) && data.id == bookmarkId &&
+        isValidId(data.ownerId) && data.ownerId == request.auth.uid && data.ownerId == userId &&
+        data.key is string && data.key.size() >= 3 && data.key.size() <= 80 &&
+        data.bookId is string && data.bookId.size() >= 1 && data.bookId.size() <= 50 &&
+        data.bookName is string && data.bookName.size() >= 1 && data.bookName.size() <= 60 &&
+        data.chapter is int && data.chapter >= 1 && data.chapter <= 150 &&
+        data.verse is int && data.verse >= 1 && data.verse <= 176 &&
+        data.theme is string && data.theme.size() <= 30 && data.theme in ['Fé', 'Ansiedade', 'Família', 'Gratidão', 'Esperança'] &&
+        data.createdAtLabel is string && data.createdAtLabel.size() >= 1 && data.createdAtLabel.size() <= 40 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidVerseHighlightDoc(data, userId, highlightId) {
+      return data.keys().hasAll([
+          'id',
+          'ownerId',
+          'key',
+          'color',
+          'updatedAtLabel',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'ownerId',
+          'key',
+          'color',
+          'updatedAtLabel',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) && data.id == highlightId &&
+        isValidId(data.ownerId) && data.ownerId == request.auth.uid && data.ownerId == userId &&
+        data.key is string && data.key.size() >= 3 && data.key.size() <= 80 &&
+        data.color is string && data.color.size() <= 20 && data.color in ['amber', 'navy', 'olive', 'terracotta'] &&
+        data.updatedAtLabel is string && data.updatedAtLabel.size() >= 1 && data.updatedAtLabel.size() <= 40 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPlanProgressDoc(data, userId, planId) {
+      return data.keys().hasAll(['planId', 'ownerId', 'completedDays', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['planId', 'ownerId', 'completedDays', 'createdAt', 'updatedAt']) &&
+        isValidId(data.planId) && data.planId == planId &&
+        isValidId(data.ownerId) && data.ownerId == request.auth.uid && data.ownerId == userId &&
+        data.completedDays is list && data.completedDays.size() <= 366 &&
+        (data.completedDays.size() == 0 || data.completedDays[0] is int) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidVisitorCardDoc(data, userId, cardId) {
+      return data.keys().hasAll([
+          'id',
+          'ownerId',
+          'name',
+          'contact',
+          'preferredChannel',
+          'message',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'ownerId',
+          'name',
+          'contact',
+          'preferredChannel',
+          'message',
+          'createdAt'
+        ]) &&
+        isValidId(data.id) && data.id == cardId &&
+        isValidId(data.ownerId) && data.ownerId == request.auth.uid && data.ownerId == userId &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        data.contact is string && data.contact.size() >= 3 && data.contact.size() <= 160 &&
+        data.preferredChannel is string && data.preferredChannel.size() <= 40 &&
+        data.preferredChannel in ['WhatsApp / Telemóvel', 'Email', 'Pessoalmente no domingo'] &&
+        data.message is string && data.message.size() <= 1000 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidPrayerRequestDoc(data, requestId) {
+      return data.keys().hasAll([
+          'id',
+          'churchId',
+          'authorId',
+          'author',
+          'isAnonymous',
+          'category',
+          'content',
+          'createdAtLabel',
+          'prayingCount',
+          'isPublic',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'churchId',
+          'authorId',
+          'author',
+          'isAnonymous',
+          'category',
+          'content',
+          'createdAtLabel',
+          'prayingCount',
+          'isPublic',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) && data.id == requestId &&
+        data.churchId is string && data.churchId.size() <= 32 && data.churchId == 'iebhorta' &&
+        isValidId(data.authorId) &&
+        data.author is string && data.author.size() >= 1 && data.author.size() <= 80 &&
+        data.isAnonymous is bool &&
+        data.category is string && data.category.size() <= 30 &&
+        data.category in ['Família', 'Saúde', 'Gratidão', 'Orientação', 'Igreja'] &&
+        data.content is string && data.content.size() >= 3 && data.content.size() <= 1200 &&
+        data.createdAtLabel is string && data.createdAtLabel.size() >= 1 && data.createdAtLabel.size() <= 40 &&
+        data.prayingCount is int && data.prayingCount >= 0 && data.prayingCount <= 100000 &&
+        data.isPublic is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidChallengeCommentDoc(data, commentId) {
+      return data.keys().hasAll([
+          'id',
+          'churchId',
+          'authorId',
+          'author',
+          'day',
+          'text',
+          'createdAtLabel',
+          'isPublic',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'churchId',
+          'authorId',
+          'author',
+          'day',
+          'text',
+          'createdAtLabel',
+          'isPublic',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) && data.id == commentId &&
+        data.churchId is string && data.churchId.size() <= 32 && data.churchId == 'iebhorta' &&
+        isValidId(data.authorId) && data.authorId == request.auth.uid &&
+        data.author is string && data.author.size() >= 1 && data.author.size() <= 80 &&
+        data.day is int && data.day >= 1 && data.day <= 366 &&
+        data.text is string && data.text.size() >= 2 && data.text.size() <= 1000 &&
+        data.createdAtLabel is string && data.createdAtLabel.size() >= 1 && data.createdAtLabel.size() <= 40 &&
+        data.isPublic is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // =========================================================================
+    // Collection Match Blocks
+    // =========================================================================
+
+    // 1. Admins Collection
+    match /admins/{adminId} {
+      allow get: if isOwner(adminId) || isAdmin();
+      allow list: if false;
+      allow create: if isAdmin() && isValidId(adminId) && isValidAdminDoc(incoming()) && incoming().uid == adminId && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(adminId);
+    }
+
+    // 2. User Workspace Root Document
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserWorkspace(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserWorkspace(incoming(), userId) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName',
+          'theme',
+          'bibleVersion',
+          'secondaryVersion',
+          'activePlanId',
+          'streak',
+          'lastReadDate',
+          'updatedAt'
+        ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // 2a. Sermon & Study Notes Subcollection (Master Gate checks userWorkspaceExists)
+      match /sermonNotes/{noteId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(noteId) && userWorkspaceExists(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(noteId) &&
+          isValidSermonNoteDoc(incoming(), userId, noteId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userWorkspaceExists(userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(noteId) &&
+          isValidSermonNoteDoc(incoming(), userId, noteId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title',
+            'preacher',
+            'date',
+            'content',
+            'updatedAtLabel',
+            'updatedAt'
+          ]) &&
+          userWorkspaceExists(userId);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(noteId) && userWorkspaceExists(userId);
+      }
+
+      // 2b. Verse Notes Subcollection
+      match /verseNotes/{noteId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(noteId) && userWorkspaceExists(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(noteId) &&
+          isValidVerseNoteDoc(incoming(), userId, noteId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userWorkspaceExists(userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(noteId) &&
+          isValidVerseNoteDoc(incoming(), userId, noteId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().key == existing().key &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'text',
+            'updatedAtLabel',
+            'updatedAt'
+          ]) &&
+          userWorkspaceExists(userId);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(noteId) && userWorkspaceExists(userId);
+      }
+
+      // 2c. Verse Bookmarks Subcollection
+      match /bookmarks/{bookmarkId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(bookmarkId) && userWorkspaceExists(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(bookmarkId) &&
+          isValidVerseBookmarkDoc(incoming(), userId, bookmarkId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userWorkspaceExists(userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(bookmarkId) &&
+          isValidVerseBookmarkDoc(incoming(), userId, bookmarkId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().key == existing().key &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'theme',
+            'createdAtLabel',
+            'updatedAt'
+          ]) &&
+          userWorkspaceExists(userId);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(bookmarkId) && userWorkspaceExists(userId);
+      }
+
+      // 2d. Verse Highlights Subcollection
+      match /highlights/{highlightId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(highlightId) && userWorkspaceExists(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(highlightId) &&
+          isValidVerseHighlightDoc(incoming(), userId, highlightId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userWorkspaceExists(userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(highlightId) &&
+          isValidVerseHighlightDoc(incoming(), userId, highlightId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().key == existing().key &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'color',
+            'updatedAtLabel',
+            'updatedAt'
+          ]) &&
+          userWorkspaceExists(userId);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(highlightId) && userWorkspaceExists(userId);
+      }
+
+      // 2e. Reading Plan Progress Subcollection
+      match /planProgress/{planId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(planId) && userWorkspaceExists(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(planId) &&
+          isValidPlanProgressDoc(incoming(), userId, planId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userWorkspaceExists(userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(planId) &&
+          isValidPlanProgressDoc(incoming(), userId, planId) &&
+          incoming().planId == existing().planId &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'completedDays',
+            'updatedAt'
+          ]) &&
+          userWorkspaceExists(userId);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(planId) && userWorkspaceExists(userId);
+      }
+
+      // 2f. Visitor Welcome Cards Subcollection (Strict PII Isolation: Owner or Admin Only)
+      match /visitorCards/{cardId} {
+        allow get: if isValidId(userId) && isValidId(cardId) && (
+          (isOwner(userId) && userWorkspaceExists(userId)) || isAdmin()
+        );
+        allow list: if (isOwner(userId) && resource.data.ownerId == request.auth.uid) || isAdmin();
+
+        allow create: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(cardId) &&
+          isValidVisitorCardDoc(incoming(), userId, cardId) &&
+          incoming().createdAt == request.time &&
+          userWorkspaceExists(userId);
+
+        allow update: if false;
+        allow delete: if isValidId(userId) && isValidId(cardId) && (isOwner(userId) || isAdmin());
+      }
+    }
+
+    // 3. Community Prayer Wall Collection
+    match /prayerRequests/{requestId} {
+      allow get: if isVerifiedUser() && isValidId(requestId) &&
+        existing().churchId == 'iebhorta' &&
+        (existing().isPublic == true || existing().authorId == request.auth.uid || isAdmin());
+
+      allow list: if isVerifiedUser() &&
+        resource.data.churchId == 'iebhorta' &&
+        (resource.data.isPublic == true || resource.data.authorId == request.auth.uid);
+
+      allow create: if isVerifiedUser() &&
+        isValidId(requestId) &&
+        isValidPrayerRequestDoc(incoming(), requestId) &&
+        incoming().authorId == request.auth.uid &&
+        incoming().prayingCount == 1 &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        userWorkspaceExists(request.auth.uid);
+
+      allow update: if isVerifiedUser() &&
+        isValidId(requestId) &&
+        isValidPrayerRequestDoc(incoming(), requestId) &&
+        incoming().id == existing().id &&
+        incoming().churchId == existing().churchId &&
+        incoming().authorId == existing().authorId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          // Action 1: Author edits their own prayer content or visibility
+          (existing().authorId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'author',
+              'isAnonymous',
+              'category',
+              'content',
+              'isPublic',
+              'updatedAt'
+            ])) ||
+          // Action 2: Congregation member increments or decrements prayingCount by 1
+          (existing().isPublic == true &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['prayingCount', 'updatedAt']) &&
+            (incoming().prayingCount == existing().prayingCount + 1 ||
+              incoming().prayingCount == existing().prayingCount - 1))
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(requestId) &&
+        (existing().authorId == request.auth.uid || isAdmin());
+    }
+
+    // 4. Community Challenge Reflections Collection
+    match /challengeComments/{commentId} {
+      allow get: if isVerifiedUser() && isValidId(commentId) &&
+        existing().churchId == 'iebhorta' &&
+        (existing().isPublic == true || existing().authorId == request.auth.uid || isAdmin());
+
+      allow list: if isVerifiedUser() &&
+        resource.data.churchId == 'iebhorta' &&
+        (resource.data.isPublic == true || resource.data.authorId == request.auth.uid);
+
+      allow create: if isVerifiedUser() &&
+        isValidId(commentId) &&
+        isValidChallengeCommentDoc(incoming(), commentId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        userWorkspaceExists(request.auth.uid);
+
+      allow update: if isVerifiedUser() &&
+        isValidId(commentId) &&
+        isValidChallengeCommentDoc(incoming(), commentId) &&
+        incoming().id == existing().id &&
+        incoming().churchId == existing().churchId &&
+        incoming().authorId == existing().authorId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (existing().authorId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['text', 'isPublic', 'updatedAt']))
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(commentId) &&
+        (existing().authorId == request.auth.uid || isAdmin());
+    }
+  }
+}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="96" fill="#13294B"/>
+  <rect x="32" y="32" width="448" height="448" rx="72" stroke="#C99A3B" stroke-opacity="0.35" stroke-width="4"/>
+  <!-- Cross and open Bible emblem -->
+  <path d="M256 106V306M196 172H316" stroke="#C99A3B" stroke-width="24" stroke-linecap="round"/>
+  <path d="M132 332C176 312 222 318 256 344C290 318 336 312 380 332V382C336 364 290 370 256 394C222 370 176 364 132 382V332Z" stroke="#FAF8F4" stroke-width="18" stroke-linejoin="round"/>
+  <path d="M256 344V394" stroke="#FAF8F4" stroke-width="14" stroke-linecap="round"/>
+</svg>

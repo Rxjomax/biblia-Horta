@@ -1,0 +1,700 @@
+{
+  "entities": {
+    "AdminDoc": {
+      "title": "AdminDoc",
+      "description": "Trusted administrator marker document for pastoral staff of IEB Horta.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the administrator."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin"],
+          "maxLength": 16,
+          "description": "Fixed admin role identifier."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when admin record was created."
+        }
+      },
+      "required": ["uid", "role", "createdAt"]
+    },
+    "UserWorkspace": {
+      "title": "UserWorkspace",
+      "description": "Synchronized personal study preferences and reading streak for an authenticated IEB Horta member (no PII stored here).",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the workspace owner."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "First name or public display name."
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["light", "dark"],
+          "maxLength": 10,
+          "description": "Preferred UI color theme."
+        },
+        "bibleVersion": {
+          "type": "string",
+          "enum": ["ARC", "ARA", "NVI", "OL", "A21", "NAA", "NTLH"],
+          "maxLength": 10,
+          "description": "Primary Bible translation ID."
+        },
+        "secondaryVersion": {
+          "type": "string",
+          "enum": ["ARC", "ARA", "NVI", "OL", "A21", "NAA", "NTLH"],
+          "maxLength": 10,
+          "description": "Parallel comparison Bible translation ID."
+        },
+        "activePlanId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Currently active Bible reading plan ID."
+        },
+        "streak": {
+          "type": "number",
+          "description": "Consecutive days of Bible reading."
+        },
+        "lastReadDate": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 20,
+          "description": "ISO date YYYY-MM-DD of last completed reading."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "displayName",
+        "theme",
+        "bibleVersion",
+        "secondaryVersion",
+        "activePlanId",
+        "streak",
+        "lastReadDate",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SermonNoteDoc": {
+      "title": "SermonNoteDoc",
+      "description": "Personal sermon or Bible study note belonging to a specific user workspace.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Document identifier."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the note owner."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Title of the study or message note."
+        },
+        "preacher": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Context, speaker, or study category."
+        },
+        "date": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Formatted PT-PT date label."
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000,
+          "description": "Body of the note with inline Bible references."
+        },
+        "updatedAtLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Human-readable PT-PT last modified label."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Immutable server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "title",
+        "preacher",
+        "date",
+        "content",
+        "updatedAtLabel",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "VerseNoteDoc": {
+      "title": "VerseNoteDoc",
+      "description": "Personal annotation attached to a specific Bible verse.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Safe verse document ID (e.g., filipenses_4_7)."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the verse note owner."
+        },
+        "key": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80,
+          "description": "Canonical verse key (e.g., filipenses:4:7)."
+        },
+        "bookId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "description": "Canonical book ID."
+        },
+        "bookName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Portuguese book name."
+        },
+        "chapter": {
+          "type": "number",
+          "description": "Chapter number (1..150)."
+        },
+        "verse": {
+          "type": "number",
+          "description": "Verse number (1..176)."
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "Personal verse annotation text."
+        },
+        "updatedAtLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Formatted PT-PT date."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "key",
+        "bookId",
+        "bookName",
+        "chapter",
+        "verse",
+        "text",
+        "updatedAtLabel",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "VerseBookmarkDoc": {
+      "title": "VerseBookmarkDoc",
+      "description": "Thematic Bible verse bookmark belonging to a user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Safe bookmark document ID."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the bookmark owner."
+        },
+        "key": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80,
+          "description": "Canonical verse key."
+        },
+        "bookId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "description": "Canonical book ID."
+        },
+        "bookName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Portuguese book name."
+        },
+        "chapter": {
+          "type": "number",
+          "description": "Chapter number."
+        },
+        "verse": {
+          "type": "number",
+          "description": "Verse number."
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["Fé", "Ansiedade", "Família", "Gratidão", "Esperança"],
+          "maxLength": 30,
+          "description": "Thematic tag."
+        },
+        "createdAtLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Formatted PT-PT creation date."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "key",
+        "bookId",
+        "bookName",
+        "chapter",
+        "verse",
+        "theme",
+        "createdAtLabel",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "VerseHighlightDoc": {
+      "title": "VerseHighlightDoc",
+      "description": "Color highlight on a Bible verse belonging to a user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Safe highlight document ID."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the highlight owner."
+        },
+        "key": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80,
+          "description": "Canonical verse key."
+        },
+        "color": {
+          "type": "string",
+          "enum": ["amber", "navy", "olive", "terracotta"],
+          "maxLength": 20,
+          "description": "Editorial highlight color."
+        },
+        "updatedAtLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "ISO date label."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "key",
+        "color",
+        "updatedAtLabel",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PlanProgressDoc": {
+      "title": "PlanProgressDoc",
+      "description": "Completed day numbers for a specific reading plan belonging to a user.",
+      "type": "object",
+      "properties": {
+        "planId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Reading plan identifier."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the user."
+        },
+        "completedDays": {
+          "type": "array",
+          "description": "Bounded list of completed day numbers (max 366)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["planId", "ownerId", "completedDays", "createdAt", "updatedAt"]
+    },
+    "VisitorCardDoc": {
+      "title": "VisitorCardDoc",
+      "description": "Private visitor welcome card containing PII (phone/email), strictly isolated under the submitting user's private subcollection.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Visitor card ID."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the visitor who submitted the card."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Full name of the visitor."
+        },
+        "contact": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "description": "Phone number or email address (PII)."
+        },
+        "preferredChannel": {
+          "type": "string",
+          "enum": ["WhatsApp / Telemóvel", "Email", "Pessoalmente no domingo"],
+          "maxLength": 40,
+          "description": "Preferred pastoral contact channel."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 1000,
+          "description": "Optional welcome message or question."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server submission timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "name",
+        "contact",
+        "preferredChannel",
+        "message",
+        "createdAt"
+      ]
+    },
+    "PrayerRequestDoc": {
+      "title": "PrayerRequestDoc",
+      "description": "Community prayer wall request shared with IEB Horta members.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Prayer request ID."
+        },
+        "churchId": {
+          "type": "string",
+          "enum": ["iebhorta"],
+          "maxLength": 32,
+          "description": "Congregation tenant identifier."
+        },
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the member who created the prayer request."
+        },
+        "author": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Display name or 'Pedido Anónimo'."
+        },
+        "isAnonymous": {
+          "type": "boolean",
+          "description": "Whether the author chose to hide their name publicly."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Família", "Saúde", "Gratidão", "Orientação", "Igreja"],
+          "maxLength": 30,
+          "description": "Prayer category."
+        },
+        "content": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 1200,
+          "description": "Prayer request text."
+        },
+        "createdAtLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Human-readable PT-PT time label."
+        },
+        "prayingCount": {
+          "type": "number",
+          "description": "Number of members praying for this request."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "True when published to the congregation wall."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Immutable server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "churchId",
+        "authorId",
+        "author",
+        "isAnonymous",
+        "category",
+        "content",
+        "createdAtLabel",
+        "prayingCount",
+        "isPublic",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ChallengeCommentDoc": {
+      "title": "ChallengeCommentDoc",
+      "description": "Community reflection on a specific day of the collective reading plan.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Comment document ID."
+        },
+        "churchId": {
+          "type": "string",
+          "enum": ["iebhorta"],
+          "maxLength": 32,
+          "description": "Congregation identifier."
+        },
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the commenting member."
+        },
+        "author": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Public display name."
+        },
+        "day": {
+          "type": "number",
+          "description": "Reading plan day number (1..366)."
+        },
+        "text": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 1000,
+          "description": "Reflection text."
+        },
+        "createdAtLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Human-readable PT-PT timestamp."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "True when visible to congregation members."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "churchId",
+        "authorId",
+        "author",
+        "day",
+        "text",
+        "createdAtLabel",
+        "isPublic",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminDoc" },
+      "description": "Admin lookup collection for IEB Horta pastoral leaders."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserWorkspace" },
+      "description": "Root personal workspace document for a signed-in member."
+    },
+    "/users/{userId}/sermonNotes/{noteId}": {
+      "schema": { "$ref": "#/entities/SermonNoteDoc" },
+      "description": "Personal sermon and study notes subcollection."
+    },
+    "/users/{userId}/verseNotes/{noteId}": {
+      "schema": { "$ref": "#/entities/VerseNoteDoc" },
+      "description": "Personal verse annotations subcollection."
+    },
+    "/users/{userId}/bookmarks/{bookmarkId}": {
+      "schema": { "$ref": "#/entities/VerseBookmarkDoc" },
+      "description": "Personal thematic verse bookmarks subcollection."
+    },
+    "/users/{userId}/highlights/{highlightId}": {
+      "schema": { "$ref": "#/entities/VerseHighlightDoc" },
+      "description": "Personal verse color highlights subcollection."
+    },
+    "/users/{userId}/planProgress/{planId}": {
+      "schema": { "$ref": "#/entities/PlanProgressDoc" },
+      "description": "Personal reading plan progress subcollection."
+    },
+    "/users/{userId}/visitorCards/{cardId}": {
+      "schema": { "$ref": "#/entities/VisitorCardDoc" },
+      "description": "Private PII-isolated visitor welcome cards submitted by the user."
+    },
+    "/prayerRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/PrayerRequestDoc" },
+      "description": "Shared congregation prayer wall requests."
+    },
+    "/challengeComments/{commentId}": {
+      "schema": { "$ref": "#/entities/ChallengeCommentDoc" },
+      "description": "Shared congregation reflections on reading plans."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "IEB Horta",
+  "description": "Aplicação da Igreja Evangélica Baptista da Horta — Bíblia digital multi-versões, planos de leitura, mural de oração e vida da igreja nos Açores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
