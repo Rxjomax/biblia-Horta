@@ -13,6 +13,7 @@ import {
   Smartphone,
   X,
 } from 'lucide-react';
+import { OFFICIAL_APP_URL } from '../data/churchData';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import type { BibleVersionId } from '../types';
 
@@ -79,7 +80,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   const [copiedUrl, setCopiedUrl] = useState(false);
 
   const isCurrentVersionOffline = offlineVersions.includes(bibleVersion);
-  const currentUrl = typeof window !== 'undefined' ? window.location.href : '/';
+  const targetAppUrl = OFFICIAL_APP_URL;
 
   useEffect(() => {
     if (!showGuide || typeof window === 'undefined') return;
@@ -116,7 +117,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   };
 
   const handleCopyUrl = async () => {
-    const ok = await copyTextToClipboard(currentUrl);
+    const ok = await copyTextToClipboard(targetAppUrl);
     if (ok) {
       setCopiedUrl(true);
       window.setTimeout(() => setCopiedUrl(false), 3000);
@@ -208,11 +209,15 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                     <span>Janela embutida detetada</span>
                   </p>
                   <p className="text-xs leading-relaxed text-[#3F4B5E] dark:text-[#C8D1DE]">
-                    Por segurança do navegador, abra a aplicação num separador próprio para instalar.
+                    Por segurança do navegador, abra o site oficial{' '}
+                    <span className="font-mono font-medium text-[#13294B] dark:text-[#D4A84E]">
+                      biblia-horta.vercel.app
+                    </span>{' '}
+                    num separador próprio para instalar.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <a
-                      href={currentUrl}
+                      href={targetAppUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="min-h-[44px] px-4 py-2 rounded-xl bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] text-xs font-medium inline-flex items-center gap-2 hover:opacity-90"

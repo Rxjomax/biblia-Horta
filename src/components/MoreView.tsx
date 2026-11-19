@@ -836,13 +836,13 @@ export const MoreView: React.FC<MoreViewProps> = ({
             {isInIframe && !isInstalled && (
               <div className="pt-1">
                 <a
-                  href={typeof window !== 'undefined' ? window.location.href : '/'}
+                  href={OFFICIAL_APP_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-[#8C6218] dark:text-[#D4A84E] hover:underline min-h-[44px]"
                 >
                   <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Abrir em separador próprio para instalar diretamente no telemóvel/PC →</span>
+                  <span>Abrir {OFFICIAL_APP_URL.replace(/^https?:\/\/|\/$/g, '')} em separador próprio para instalar →</span>
                 </a>
               </div>
             )}
