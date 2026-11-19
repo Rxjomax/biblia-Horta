@@ -40,8 +40,8 @@ export const Navigation: React.FC<NavigationProps> = ({
 }) => {
   return (
     <>
-      {/* Mobile Top Header (compact 52px so total sticky height stays under 15% of viewport) */}
-      <header className="lg:hidden sticky top-0 z-30 h-[52px] bg-[#FAF8F4]/95 dark:bg-[#0C1320]/95 backdrop-blur-md border-b border-[#141E2E]/10 dark:border-white/10 px-3 sm:px-4 flex items-center justify-between gap-2">
+      {/* Mobile Top Header (compact 52px + safe-area top for standalone iPhone notch) */}
+      <header className="lg:hidden sticky top-0 z-30 min-h-[52px] pt-[env(safe-area-inset-top)] bg-[#FAF8F4]/95 dark:bg-[#0C1320]/95 backdrop-blur-md border-b border-[#141E2E]/10 dark:border-white/10 px-3 sm:px-4 flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => onSelectTab('inicio')}

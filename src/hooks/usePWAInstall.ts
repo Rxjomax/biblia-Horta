@@ -10,10 +10,54 @@ export interface BeforeInstallPromptEvent extends Event {
 const OFFLINE_BIBLE_CACHE = 'iebhorta-bibles-cache';
 const KNOWN_VERSIONS: BibleVersionId[] = ['ARC', 'ARA', 'NVI', 'OL', 'A21', 'NAA', 'NTLH'];
 
+export type IOSBrowserKind = 'safari' | 'chrome' | 'in-app' | 'other' | null;
+
+export interface DetectedPlatform {
+  isIOS: boolean;
+  isIPad: boolean;
+  isAndroid: boolean;
+  iosBrowser: IOSBrowserKind;
+}
+
+export function detectPlatformFromNavigator(
+  userAgent: string,
+  platform = '',
+  maxTouchPoints = 0
+): DetectedPlatform {
+  const ua = userAgent.toLowerCase();
+  const isIPad = /ipad/.test(ua) || (platform === 'MacIntel' && maxTouchPoints > 1);
+  const isIOS = /iphone|ipad|ipod/.test(ua) || isIPad;
+  const isAndroid = /android/.test(ua);
+
+  let iosBrowser: IOSBrowserKind = null;
+  if (isIOS) {
+    const isKnownInApp =
+      /fban|fbav|fb_iab|instagram|whatsapp|line\/|micromessenger|gsa\/|twitter|snapchat|tiktok|linkedinapp|messenger/.test(
+        ua
+      );
+    if (isKnownInApp) {
+      iosBrowser = 'in-app';
+    } else if (/crios/.test(ua)) {
+      iosBrowser = 'chrome';
+    } else if (/fxios|edgios|opios|duckduckgo/.test(ua)) {
+      iosBrowser = 'other';
+    } else if (/safari/.test(ua)) {
+      iosBrowser = 'safari';
+    } else {
+      // iOS WKWebView inside apps (WhatsApp, Gmail, Apple Mail, Telegram) omits "Safari/" from UA
+      iosBrowser = 'in-app';
+    }
+  }
+
+  return { isIOS, isIPad, isAndroid, iosBrowser };
+}
+
 interface PWAStoreState {
   deferredPrompt: BeforeInstallPromptEvent | null;
   isInstalled: boolean;
   isIOS: boolean;
+  isIPad: boolean;
+  iosBrowser: IOSBrowserKind;
   isAndroid: boolean;
   isInIframe: boolean;
   swReady: boolean;
@@ -32,20 +76,26 @@ function detectStandalone(): boolean {
 
 function detectPlatform() {
   if (typeof window === 'undefined') {
-    return { isIOS: false, isAndroid: false, isInIframe: false };
+    return {
+      isIOS: false,
+      isIPad: false,
+      iosBrowser: null as IOSBrowserKind,
+      isAndroid: false,
+      isInIframe: false,
+    };
   }
-  const ua = window.navigator.userAgent.toLowerCase();
-  const isIOS =
-    /iphone|ipad|ipod/.test(ua) ||
-    (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
-  const isAndroid = /android/.test(ua);
+  const detected = detectPlatformFromNavigator(
+    window.navigator.userAgent || '',
+    window.navigator.platform || '',
+    window.navigator.maxTouchPoints || 0
+  );
   let isInIframe = false;
   try {
     isInIframe = window.self !== window.top;
   } catch {
     isInIframe = true;
   }
-  return { isIOS, isAndroid, isInIframe };
+  return { ...detected, isInIframe };
 }
 
 const platform = detectPlatform();
@@ -54,6 +104,8 @@ let state: PWAStoreState = {
   deferredPrompt: null,
   isInstalled: detectStandalone(),
   isIOS: platform.isIOS,
+  isIPad: platform.isIPad,
+  iosBrowser: platform.iosBrowser,
   isAndroid: platform.isAndroid,
   isInIframe: platform.isInIframe,
   swReady: false,
@@ -223,6 +275,8 @@ export function usePWAInstall() {
     isInstallable: !!snapshot.deferredPrompt,
     isInstalled: snapshot.isInstalled,
     isIOS: snapshot.isIOS,
+    isIPad: snapshot.isIPad,
+    iosBrowser: snapshot.iosBrowser,
     isAndroid: snapshot.isAndroid,
     isInIframe: snapshot.isInIframe,
     swReady: snapshot.swReady,
