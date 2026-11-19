@@ -9,10 +9,13 @@ import type {
 } from '../types';
 export { READING_PLANS } from './readingPlans';
 
+export const OFFICIAL_APP_URL = 'https://biblia-horta.vercel.app/';
+
 export const CHURCH_INFO = {
   name: 'IEB Horta',
   fullName: 'Igreja Evangélica Baptista da Horta',
   handle: '@iebhorta',
+  websiteUrl: OFFICIAL_APP_URL,
   address: 'Rua Walter Bensaúde, 14 · 9900-028 Horta, Ilha do Faial, Açores',
   city: 'Horta, Faial',
   email: 'geral@iebhorta.pt',

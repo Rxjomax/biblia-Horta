@@ -6,6 +6,8 @@ import {
   Check,
   Clock,
   Cloud,
+  Copy,
+  Download,
   ExternalLink,
   HardDriveDownload,
   LogIn,
@@ -13,11 +15,12 @@ import {
   MapPin,
   Moon,
   Navigation as NavIcon,
+  QrCode,
   RefreshCw,
   Sun,
 } from 'lucide-react';
 import { getVerseFromCorpusOrFallback } from '../services/bibleLoader';
-import { CHURCH_EVENTS, CHURCH_INFO } from '../data/churchData';
+import { CHURCH_EVENTS, CHURCH_INFO, OFFICIAL_APP_URL } from '../data/churchData';
 import type {
   BibleCorpus,
   BibleVersionId,
@@ -36,6 +39,7 @@ import type {
 } from '../hooks/useSmartReminders';
 import { getUpcomingRemindersSchedule, type ReminderKind } from '../utils/reminders';
 import { PWAInstallButton } from './PWAInstallButton';
+import { QRCodeGraphic, downloadStandaloneQRCode } from './SocialQRModal';
 
 interface MoreViewProps {
   theme: 'light' | 'dark';
@@ -64,6 +68,7 @@ interface MoreViewProps {
   onSignInGoogle?: () => Promise<void>;
   onSignOutCloud?: () => Promise<void>;
   onForceCloudSync?: () => Promise<void>;
+  onOpenSocialQR?: () => void;
 }
 
 export const MoreView: React.FC<MoreViewProps> = ({
@@ -92,7 +97,20 @@ export const MoreView: React.FC<MoreViewProps> = ({
   onSignInGoogle,
   onSignOutCloud,
   onForceCloudSync,
+  onOpenSocialQR,
 }) => {
+  const [copiedOfficialUrl, setCopiedOfficialUrl] = useState(false);
+
+  const handleCopyOfficialUrl = async () => {
+    try {
+      await navigator.clipboard?.writeText(OFFICIAL_APP_URL);
+      setCopiedOfficialUrl(true);
+      window.setTimeout(() => setCopiedOfficialUrl(false), 3000);
+    } catch {
+      // Ignore clipboard failure
+    }
+  };
+
   const {
     isInstalled,
     isInIframe,
@@ -842,6 +860,71 @@ export const MoreView: React.FC<MoreViewProps> = ({
             </p>
             <p>{CHURCH_INFO.email} · {CHURCH_INFO.phone}</p>
             <p>Todos os seus planos, notas e sublinhados ficam guardados localmente neste dispositivo.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. QR Code para Redes Sociais */}
+      <section aria-labelledby="social-qr-section-heading">
+        <div className="rounded-2xl border border-[#141E2E]/10 dark:border-white/10 bg-[#FAF8F4] dark:bg-[#131E30] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-3 max-w-[58ch]">
+            <p className="text-xs font-medium text-[#8C6218] dark:text-[#D4A84E]">
+              Kit de Divulgação · Instagram, WhatsApp e Facebook
+            </p>
+            <h2
+              id="social-qr-section-heading"
+              className="font-display text-2xl font-semibold text-[#141E2E] dark:text-[#F2EFE9]"
+            >
+              QR Code para Partilhar nas Redes Sociais
+            </h2>
+            <p className="text-sm text-[#3F4B5E] dark:text-[#C8D1DE] leading-relaxed">
+              Crie cartões prontos para Stories (9:16) ou Feed (1:1) com mensagens diferentes de convite e o QR Code oficial que leva diretamente ao site{' '}
+              <span className="font-mono text-xs font-medium text-[#13294B] dark:text-[#D4A84E]">
+                {OFFICIAL_APP_URL}
+              </span>.
+            </p>
+
+            <div className="pt-1 flex flex-wrap gap-2.5">
+              {onOpenSocialQR && (
+                <button
+                  type="button"
+                  onClick={onOpenSocialQR}
+                  className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] text-sm font-semibold inline-flex items-center gap-2 hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+                >
+                  <QrCode className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span>Personalizar Cartão com QR Code</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => void downloadStandaloneQRCode(OFFICIAL_APP_URL)}
+                className="min-h-[48px] px-4 py-2.5 rounded-xl border border-[#141E2E]/15 dark:border-white/15 bg-[#F4F0E8]/70 dark:bg-[#0C1320] text-xs font-medium text-[#141E2E] dark:text-[#F2EFE9] inline-flex items-center gap-2 hover:bg-black/5 dark:hover:bg-white/5"
+              >
+                <Download className="w-4 h-4 text-[#8C6218] dark:text-[#D4A84E] shrink-0" aria-hidden="true" />
+                <span>Baixar Só o QR Code (PNG)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleCopyOfficialUrl()}
+                className="min-h-[48px] px-4 py-2.5 rounded-xl border border-[#141E2E]/15 dark:border-white/15 text-xs font-medium text-[#141E2E] dark:text-[#F2EFE9] inline-flex items-center gap-1.5 hover:bg-black/5 dark:hover:bg-white/5"
+              >
+                {copiedOfficialUrl ? (
+                  <Check className="w-3.5 h-3.5 text-[#1F5C3A] dark:text-[#6EE7B7]" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
+                <span>{copiedOfficialUrl ? 'Link copiado!' : 'Copiar Link do Site'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-2 shrink-0 self-center md:self-auto">
+            <QRCodeGraphic url={OFFICIAL_APP_URL} size={156} />
+            <span className="text-[11px] font-mono text-[#556173] dark:text-[#A3B0C2]">
+              biblia-horta.vercel.app
+            </span>
           </div>
         </div>
       </section>

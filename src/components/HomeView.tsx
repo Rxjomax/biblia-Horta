@@ -7,6 +7,7 @@ import {
   HeartHandshake,
   Image as ImageIcon,
   NotebookPen,
+  QrCode,
   Search,
   Sparkles,
   Volume2,
@@ -42,6 +43,7 @@ interface HomeViewProps {
   onOpenPlansTab: () => void;
   onOpenNotesTab: (noteId?: string) => void;
   onOpenCommunityTab: () => void;
+  onOpenSocialQR?: () => void;
   savedNotes: SermonNote[];
   onSaveQuickNote: (title: string, content: string) => SermonNote;
   latestPrayerRequest?: PrayerRequest;
@@ -70,6 +72,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenPlansTab,
   onOpenNotesTab,
   onOpenCommunityTab,
+  onOpenSocialQR,
   savedNotes,
   onSaveQuickNote,
   latestPrayerRequest,
@@ -688,6 +691,42 @@ export const HomeView: React.FC<HomeViewProps> = ({
           )}
         </div>
       </section>
+
+      {/* Social Media QR Code Invitation Strip */}
+      {onOpenSocialQR && (
+        <section
+          aria-labelledby="home-social-qr-heading"
+          className="pt-2 border-t border-[#141E2E]/10 dark:border-white/10"
+        >
+          <div className="rounded-2xl border border-[#141E2E]/10 dark:border-white/10 bg-[#F4F0E8]/75 dark:bg-[#131E30] p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1 max-w-[60ch]">
+              <p className="text-xs font-medium text-[#8C6218] dark:text-[#D4A84E]">
+                Divulgação · Instagram, WhatsApp e Facebook
+              </p>
+              <h2
+                id="home-social-qr-heading"
+                className="font-display text-xl font-semibold text-[#141E2E] dark:text-[#F2EFE9]"
+              >
+                Partilhar o Site com QR Code nas Redes Sociais
+              </h2>
+              <p className="text-sm text-[#3F4B5E] dark:text-[#C8D1DE]">
+                Gere cartões prontos para Stories e Feed com mensagens de convite e QR Code direto para{' '}
+                <span className="font-mono text-xs text-[#13294B] dark:text-[#D4A84E]">
+                  biblia-horta.vercel.app
+                </span>.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenSocialQR}
+              className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] text-sm font-semibold inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+            >
+              <QrCode className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>QR Code para Redes</span>
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Detected Reference Quick Verse Modal */}
       {previewRef && (

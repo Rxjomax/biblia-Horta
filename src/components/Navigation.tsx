@@ -6,6 +6,7 @@ import {
   Menu,
   Moon,
   NotebookPen,
+  QrCode,
   Sun,
   Users,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ interface NavigationProps {
   onToggleTheme: () => void;
   streak: number;
   bibleVersion?: import('../types').BibleVersionId;
+  onOpenSocialQR?: () => void;
 }
 
 const NAV_ITEMS: { id: AppTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -37,6 +39,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   onToggleTheme,
   streak,
   bibleVersion = 'NVI',
+  onOpenSocialQR,
 }) => {
   return (
     <>
@@ -45,7 +48,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         <button
           type="button"
           onClick={() => onSelectTab('inicio')}
-          className="font-display text-lg font-semibold tracking-tight text-[#13294B] dark:text-[#F2EFE9] whitespace-nowrap shrink-0 min-h-[44px] flex items-center"
+          className="font-display text-base sm:text-lg font-semibold tracking-tight text-[#13294B] dark:text-[#F2EFE9] whitespace-nowrap shrink-0 min-h-[44px] flex items-center"
         >
           IEB Horta
         </button>
@@ -139,9 +142,20 @@ export const Navigation: React.FC<NavigationProps> = ({
             </button>
           </div>
 
-          <div className="flex">
+          <div className="w-full">
             <PWAInstallButton compact bibleVersion={bibleVersion} />
           </div>
+
+          {onOpenSocialQR && (
+            <button
+              type="button"
+              onClick={onOpenSocialQR}
+              className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-[#141E2E]/12 dark:border-white/12 text-xs font-medium text-[#141E2E] dark:text-[#F2EFE9] hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex items-center justify-center gap-2 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+            >
+              <QrCode className="w-4 h-4 text-[#8C6218] dark:text-[#D4A84E] shrink-0" aria-hidden="true" />
+              <span>QR Code Redes Sociais</span>
+            </button>
+          )}
         </div>
       </aside>
 

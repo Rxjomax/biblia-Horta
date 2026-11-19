@@ -9,6 +9,7 @@ import { NotesView } from './components/NotesView';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PlansView } from './components/PlansView';
 import { SmartReminderBanner } from './components/SmartReminderBanner';
+import { SocialQRModal } from './components/SocialQRModal';
 import { VerseShareModal } from './components/VerseShareModal';
 import { READING_PLANS } from './data/churchData';
 import { auth, signInWithGooglePopup, signOutFromFirebase } from './firebase';
@@ -54,6 +55,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<AppTab>('inicio');
   const [selectedNoteIdForTab, setSelectedNoteIdForTab] = useState<string | null>(null);
+  const [isSocialQROpen, setIsSocialQROpen] = useState(false);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(initial.theme);
   const [bibleVersion, setBibleVersion] = useState<BibleVersionId>(initial.bibleVersion);
@@ -900,6 +902,7 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         streak={streak}
         bibleVersion={bibleVersion}
+        onOpenSocialQR={() => setIsSocialQROpen(true)}
       />
 
       <main className="lg:pl-64 pb-24 lg:pb-16">
@@ -923,6 +926,7 @@ export default function App() {
                 setActiveTab('comunidade');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
+              onOpenSocialQR={() => setIsSocialQROpen(true)}
               savedNotes={sermonNotes}
               onSaveQuickNote={handleSaveQuickHomeNote}
               latestPrayerRequest={prayerRequests[0]}
@@ -1035,6 +1039,7 @@ export default function App() {
               }}
               onSignOutCloud={handleSignOutCloud}
               onForceCloudSync={() => handleForceCloudSync(cloudUser)}
+              onOpenSocialQR={() => setIsSocialQROpen(true)}
             />
           )}
         </div>
@@ -1060,6 +1065,11 @@ export default function App() {
         referenceLabel={shareModalData.referenceLabel}
         verseText={shareModalData.verseText}
         versionLabel={bibleVersion}
+      />
+
+      <SocialQRModal
+        isOpen={isSocialQROpen}
+        onClose={() => setIsSocialQROpen(false)}
       />
     </div>
   );
