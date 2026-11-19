@@ -22,7 +22,8 @@ import {
   saveSermonNoteToCloud,
   saveVerseNoteToCloud,
   saveVisitorCardToCloud,
-  subscribeUserAndChurchData,
+  subscribePublicChurchData,
+  subscribeUserWorkspaceData,
   syncBookmarkToCloud,
   syncHighlightToCloud,
   syncPlanProgressToCloud,
@@ -169,6 +170,40 @@ export default function App() {
     };
   }, [bibleVersion]);
 
+  // Always-on real-time listener for shared public church walls (Mural de Oração & Reflexões)
+  // Runs across website and mobile app immediately, even before signing in.
+  useEffect(() => {
+    const unsubPublic = subscribePublicChurchData({
+      onPrayerRequests: (cloudReqs) => {
+        setPrayerRequests((prev) => {
+          const cloudIds = new Set(cloudReqs.map((r) => r.id));
+          // Preserve any unsynced locally created requests (pr_*) not yet uploaded to cloud
+          const pendingLocal = prev.filter(
+            (r) => r.id.startsWith('pr_') && !cloudIds.has(r.id)
+          );
+          const merged = [...pendingLocal, ...cloudReqs];
+          savePersistedKey('prayerRequests', merged);
+          return merged;
+        });
+      },
+      onChallengeComments: (cloudComments) => {
+        setChallengeComments((prev) => {
+          const cloudIds = new Set(cloudComments.map((c) => c.id));
+          const pendingLocal = prev.filter(
+            (c) => c.id.startsWith('cc_') && !cloudIds.has(c.id)
+          );
+          const merged = [...pendingLocal, ...cloudComments];
+          savePersistedKey('challengeComments', merged);
+          return merged;
+        });
+      },
+      onError: () => {
+        // Keep local cache available if offline or Firestore is temporarily unreachable
+      },
+    });
+    return () => unsubPublic();
+  }, []);
+
   useEffect(() => {
     let unsubFirestore: (() => void) | null = null;
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
@@ -194,7 +229,22 @@ export default function App() {
           lastReadDate,
         });
 
-        unsubFirestore = subscribeUserAndChurchData(user, {
+        // Push any locally created community prayer requests / challenge comments queued prior to sign-in
+        const latestPersisted = loadPersistedState();
+        const localPendingPrayers = latestPersisted.prayerRequests.filter((r) =>
+          r.id.startsWith('pr_')
+        );
+        for (const req of localPendingPrayers) {
+          await createPrayerRequestInCloud(user.uid, req);
+        }
+        const localPendingComments = latestPersisted.challengeComments.filter((c) =>
+          c.id.startsWith('cc_')
+        );
+        for (const comment of localPendingComments) {
+          await createChallengeCommentInCloud(user.uid, comment);
+        }
+
+        unsubFirestore = subscribeUserWorkspaceData(user, {
           onWorkspace: (data) => {
             if (data.theme) {
               setTheme(data.theme);
@@ -247,14 +297,6 @@ export default function App() {
           onVisitorCards: (cards) => {
             setVisitorSubmissions(cards);
             savePersistedKey('visitorSubmissions', cards);
-          },
-          onPrayerRequests: (reqs) => {
-            setPrayerRequests(reqs);
-            savePersistedKey('prayerRequests', reqs);
-          },
-          onChallengeComments: (comments) => {
-            setChallengeComments(comments);
-            savePersistedKey('challengeComments', comments);
           },
         });
 
@@ -320,6 +362,16 @@ export default function App() {
       for (const card of visitorSubmissions) {
         await saveVisitorCardToCloud(targetUser.uid, card);
       }
+      for (const req of prayerRequests) {
+        if (req.id.startsWith('pr_')) {
+          await createPrayerRequestInCloud(targetUser.uid, req);
+        }
+      }
+      for (const comment of challengeComments) {
+        if (comment.id.startsWith('cc_')) {
+          await createChallengeCommentInCloud(targetUser.uid, comment);
+        }
+      }
       setCloudSyncStatus('synced');
       const timeStr = new Intl.DateTimeFormat('pt-PT', {
         hour: '2-digit',
@@ -334,37 +386,39 @@ export default function App() {
     }
   };
 
-  const handleSignInGoogle = async () => {
+  const handleSignInGoogle = async (): Promise<{
+    user: User | null;
+    errorMessage?: string;
+  }> => {
     setCloudSyncMessage('');
     try {
-      await signInWithGooglePopup();
+      const signedUser = await signInWithGooglePopup();
+      return { user: signedUser };
     } catch (err) {
       const code =
         typeof err === 'object' && err !== null && 'code' in err
           ? String((err as { code?: unknown }).code)
           : '';
+      const host = typeof window !== 'undefined' ? window.location.hostname : '';
+      let msg = 'Não foi possível concluir o início de sessão com Google neste momento.';
       if (code === 'auth/unauthorized-domain') {
         setCloudSyncStatus('error');
-        setCloudSyncMessage(
-          'Domínio ainda não autorizado no Firebase Authentication. Adicione este domínio Vercel em Firebase Console → Authentication → Settings → Authorized domains.'
-        );
+        msg = `Domínio «${host}» ainda não autorizado no Firebase Authentication. Adicione este domínio em Firebase Console → Authentication → Settings → Authorized domains.`;
       } else if (code === 'auth/popup-blocked') {
         setCloudSyncStatus('error');
-        setCloudSyncMessage(
-          'A janela de início de sessão foi bloqueada pelo navegador. Permita popups para este site e tente novamente.'
-        );
+        msg =
+          'A janela de início de sessão foi bloqueada pelo navegador. Permita popups para este site e tente novamente.';
       } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
         setCloudSyncStatus('local');
-        setCloudSyncMessage('Início de sessão cancelado.');
+        msg = 'Início de sessão cancelado.';
       } else if (code === 'auth/network-request-failed') {
         setCloudSyncStatus('error');
-        setCloudSyncMessage('Sem ligação à internet para iniciar sessão com Google.');
+        msg = 'Sem ligação à internet para iniciar sessão com Google.';
       } else {
         setCloudSyncStatus('error');
-        setCloudSyncMessage(
-          'Não foi possível concluir o início de sessão com Google neste momento.'
-        );
       }
+      setCloudSyncMessage(msg);
+      return { user: null, errorMessage: msg };
     }
   };
 
@@ -609,7 +663,25 @@ export default function App() {
     });
   };
 
-  const handleAddChallengeComment = (author: string, day: number, text: string) => {
+  const handleAddChallengeComment = async (
+    author: string,
+    day: number,
+    text: string
+  ): Promise<{ synced: boolean; errorMessage?: string }> => {
+    let activeUser = cloudUser ?? auth.currentUser;
+    if (!activeUser) {
+      const signInRes = await handleSignInGoogle();
+      activeUser = signInRes.user;
+      if (!activeUser) {
+        return {
+          synced: false,
+          errorMessage:
+            signInRes.errorMessage ||
+            'Inicie sessão com a sua conta Google para publicar a reflexão para toda a igreja.',
+        };
+      }
+    }
+
     const newComment: CommunityChallengeComment = {
       id: `cc_${Date.now()}`,
       author,
@@ -617,22 +689,53 @@ export default function App() {
       text,
       createdAt: 'Agora mesmo',
     };
-    setChallengeComments((prev) => {
-      const next = [newComment, ...prev];
-      savePersistedKey('challengeComments', next);
-      return next;
-    });
-    if (cloudUser) {
-      void createChallengeCommentInCloud(cloudUser.uid, newComment);
+
+    try {
+      await ensureUserWorkspaceDoc(activeUser, {
+        theme,
+        bibleVersion,
+        secondaryVersion,
+        activePlanId,
+        streak,
+        lastReadDate,
+      });
+      await createChallengeCommentInCloud(activeUser.uid, newComment);
+      setChallengeComments((prev) => {
+        if (prev.some((c) => c.id === newComment.id)) return prev;
+        const next = [newComment, ...prev];
+        savePersistedKey('challengeComments', next);
+        return next;
+      });
+      return { synced: true };
+    } catch {
+      return {
+        synced: false,
+        errorMessage:
+          'Não foi possível guardar na base de dados Firebase. Verifique a sua ligação à internet e tente novamente.',
+      };
     }
   };
 
-  const handleAddPrayerRequest = (
+  const handleAddPrayerRequest = async (
     author: string,
     isAnonymous: boolean,
     category: PrayerRequest['category'],
     content: string
-  ) => {
+  ): Promise<{ synced: boolean; errorMessage?: string }> => {
+    let activeUser = cloudUser ?? auth.currentUser;
+    if (!activeUser) {
+      const signInRes = await handleSignInGoogle();
+      activeUser = signInRes.user;
+      if (!activeUser) {
+        return {
+          synced: false,
+          errorMessage:
+            signInRes.errorMessage ||
+            'Inicie sessão com a sua conta Google para que o pedido apareça no site e nos telemóveis de toda a igreja.',
+        };
+      }
+    }
+
     const item: PrayerRequest = {
       id: `pr_${Date.now()}`,
       author,
@@ -642,23 +745,42 @@ export default function App() {
       createdAt: 'Agora mesmo',
       prayingCount: 1,
     };
-    setPrayerRequests((prev) => {
-      const next = [item, ...prev];
-      savePersistedKey('prayerRequests', next);
-      return next;
-    });
-    setPrayedIds((prev) => {
-      const next = [...prev, item.id];
-      savePersistedKey('prayedIds', next);
-      return next;
-    });
-    if (cloudUser) {
-      void createPrayerRequestInCloud(cloudUser.uid, item);
+
+    try {
+      await ensureUserWorkspaceDoc(activeUser, {
+        theme,
+        bibleVersion,
+        secondaryVersion,
+        activePlanId,
+        streak,
+        lastReadDate,
+      });
+      await createPrayerRequestInCloud(activeUser.uid, item);
+
+      setPrayerRequests((prev) => {
+        if (prev.some((r) => r.id === item.id)) return prev;
+        const next = [item, ...prev];
+        savePersistedKey('prayerRequests', next);
+        return next;
+      });
+      setPrayedIds((prev) => {
+        const next = prev.includes(item.id) ? prev : [...prev, item.id];
+        savePersistedKey('prayedIds', next);
+        return next;
+      });
+      return { synced: true };
+    } catch {
+      return {
+        synced: false,
+        errorMessage:
+          'Não foi possível gravar o pedido na base de dados Firebase. Verifique a ligação à internet e tente novamente.',
+      };
     }
   };
 
   const handleTogglePraying = (id: string) => {
     const alreadyPrayed = prayedIds.includes(id);
+    const delta: 1 | -1 = alreadyPrayed ? -1 : 1;
     const nextPrayedIds = alreadyPrayed
       ? prayedIds.filter((pid) => pid !== id)
       : [...prayedIds, id];
@@ -670,7 +792,7 @@ export default function App() {
         req.id === id
           ? {
               ...req,
-              prayingCount: Math.max(0, req.prayingCount + (alreadyPrayed ? -1 : 1)),
+              prayingCount: Math.max(0, req.prayingCount + delta),
             }
           : req
       );
@@ -678,7 +800,9 @@ export default function App() {
       return next;
     });
     if (cloudUser) {
-      void togglePrayerCountInCloud(id, alreadyPrayed ? -1 : 1);
+      void togglePrayerCountInCloud(id, delta).catch(() => {
+        // Keep local toggle gracefully if offline
+      });
     }
   };
 
@@ -845,6 +969,9 @@ export default function App() {
               challengeComments={challengeComments}
               onAddChallengeComment={handleAddChallengeComment}
               onOpenBibleChapter={(bId, ch) => handleOpenBibleChapter(bId, ch)}
+              isCloudSignedIn={Boolean(cloudUser)}
+              cloudUserName={cloudUser?.displayName ?? null}
+              onSignInGoogle={async () => Boolean((await handleSignInGoogle()).user)}
             />
           )}
 
@@ -872,10 +999,9 @@ export default function App() {
               onTogglePraying={handleTogglePraying}
               onOpenNotesTab={() => handleOpenNotesTab()}
               isCloudSignedIn={Boolean(cloudUser)}
-              onGoToCloudSync={() => {
-                setActiveTab('mais');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
+              cloudUserName={cloudUser?.displayName ?? null}
+              onSignInGoogle={async () => Boolean((await handleSignInGoogle()).user)}
+              cloudSyncMessage={cloudSyncMessage}
             />
           )}
 
@@ -904,7 +1030,9 @@ export default function App() {
               cloudUserName={cloudUser?.displayName ?? null}
               cloudSyncStatus={cloudSyncStatus}
               cloudSyncMessage={cloudSyncMessage}
-              onSignInGoogle={handleSignInGoogle}
+              onSignInGoogle={async () => {
+                await handleSignInGoogle();
+              }}
               onSignOutCloud={handleSignOutCloud}
               onForceCloudSync={() => handleForceCloudSync(cloudUser)}
             />

@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
-import { HeartHandshake, NotebookPen } from 'lucide-react';
+import { Check, Cloud, HeartHandshake, LogIn, NotebookPen } from 'lucide-react';
 import type { PrayerRequest } from '../types';
+
+export interface CloudSubmitResult {
+  synced: boolean;
+  errorMessage?: string;
+}
 
 interface CommunityViewProps {
   prayerRequests: PrayerRequest[];
@@ -10,11 +15,13 @@ interface CommunityViewProps {
     isAnonymous: boolean,
     category: PrayerRequest['category'],
     content: string
-  ) => void;
+  ) => Promise<CloudSubmitResult>;
   onTogglePraying: (id: string) => void;
   onOpenNotesTab: () => void;
   isCloudSignedIn?: boolean;
-  onGoToCloudSync?: () => void;
+  cloudUserName?: string | null;
+  onSignInGoogle?: () => Promise<boolean>;
+  cloudSyncMessage?: string;
 }
 
 const PRAYER_CATEGORIES: PrayerRequest['category'][] = [
@@ -32,7 +39,9 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
   onTogglePraying,
   onOpenNotesTab,
   isCloudSignedIn = false,
-  onGoToCloudSync,
+  cloudUserName = null,
+  onSignInGoogle,
+  cloudSyncMessage,
 }) => {
   const [prayerFilter, setPrayerFilter] = useState<'Todos' | PrayerRequest['category']>('Todos');
   const [prayerAuthor, setPrayerAuthor] = useState('');
@@ -40,23 +49,51 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
   const [prayerCategory, setPrayerCategory] = useState<PrayerRequest['category']>('Família');
   const [prayerContent, setPrayerContent] = useState('');
   const [prayerError, setPrayerError] = useState('');
+  const [prayerSuccess, setPrayerSuccess] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmitPrayer = (e: React.FormEvent) => {
+  const handleSubmitPrayer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prayerContent.trim()) {
-      setPrayerError('Escreva o seu pedido de oração antes de publicar.');
+    const trimmedContent = prayerContent.trim();
+    if (trimmedContent.length < 3) {
+      setPrayerError('Escreva pelo menos 3 caracteres no seu pedido de oração antes de publicar.');
+      setPrayerSuccess('');
       return;
     }
+
     setPrayerError('');
-    onAddPrayerRequest(
-      isAnonymous ? 'Pedido Anónimo' : prayerAuthor.trim() || 'Irmão(ã) da Igreja',
-      isAnonymous,
-      prayerCategory,
-      prayerContent.trim()
-    );
-    setPrayerContent('');
-    setPrayerAuthor('');
-    setIsAnonymous(false);
+    setPrayerSuccess('');
+    setIsSubmitting(true);
+
+    try {
+      const resolvedAuthor = isAnonymous
+        ? 'Pedido Anónimo'
+        : prayerAuthor.trim() || cloudUserName || 'Irmão(ã) da Igreja';
+
+      const result = await onAddPrayerRequest(
+        resolvedAuthor,
+        isAnonymous,
+        prayerCategory,
+        trimmedContent
+      );
+
+      if (result.synced) {
+        setPrayerContent('');
+        setPrayerAuthor('');
+        setIsAnonymous(false);
+        setPrayerSuccess(
+          'Pedido publicado e sincronizado em tempo real no site e nos telemóveis da igreja.'
+        );
+        window.setTimeout(() => setPrayerSuccess(''), 6000);
+      } else {
+        setPrayerError(
+          result.errorMessage ||
+            'Não foi possível sincronizar o pedido com a igreja. Tente novamente.'
+        );
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filteredPrayers =
@@ -76,7 +113,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
             Mural de Oração
           </h1>
           <p className="text-sm text-[#556173] dark:text-[#A3B0C2] mt-1 max-w-[60ch]">
-            Partilhe pedidos de oração ou agradecimentos com a igreja e acompanhe os irmãos em intercessão.
+            Partilhe pedidos de oração ou agradecimentos com a igreja e acompanhe os irmãos em intercessão em tempo real.
           </p>
         </div>
 
@@ -94,7 +131,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Form (5 cols) */}
         <form
-          onSubmit={handleSubmitPrayer}
+          onSubmit={(e) => void handleSubmitPrayer(e)}
           className="lg:col-span-5 rounded-2xl border border-[#141E2E]/10 dark:border-white/10 bg-[#F4F0E8]/70 dark:bg-[#131E30] p-6 space-y-4"
         >
           <h2 className="font-display text-xl font-semibold text-[#141E2E] dark:text-[#F2EFE9]">
@@ -103,19 +140,35 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           <p className="text-sm text-[#556173] dark:text-[#A3B0C2]">
             A igreja ora consigo. Pode identificar-se ou publicar de forma anónima.
           </p>
-          {!isCloudSignedIn && onGoToCloudSync && (
-            <p className="text-xs text-[#556173] dark:text-[#A3B0C2] leading-relaxed">
-              Guardado localmente neste dispositivo.{' '}
+
+          {!isCloudSignedIn && onSignInGoogle ? (
+            <div className="rounded-xl border border-[#B8862D]/30 bg-[#FAF8F4] dark:bg-[#0C1320] p-3.5 space-y-2.5">
+              <div className="flex items-start gap-2.5 text-xs text-[#3F4B5E] dark:text-[#C8D1DE] leading-relaxed">
+                <Cloud className="w-4 h-4 text-[#8C6218] dark:text-[#D4A84E] shrink-0 mt-0.5" aria-hidden="true" />
+                <p>
+                  O mural atualiza automaticamente em todos os dispositivos. Para publicar um novo pedido e sincronizar com toda a igreja, entre com a sua conta Google.
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={onGoToCloudSync}
-                className="font-medium text-[#13294B] dark:text-[#D4A84E] underline underline-offset-2"
+                onClick={() => void onSignInGoogle()}
+                className="w-full min-h-[44px] px-4 py-2 rounded-xl border border-[#13294B]/20 dark:border-[#D4A84E]/40 bg-[#EFE9DD]/70 dark:bg-[#1B2B44] text-xs font-semibold text-[#13294B] dark:text-[#ECCB7B] hover:opacity-90 inline-flex items-center justify-center gap-2 transition-opacity"
               >
-                Entre com Google em Mais
-              </button>{' '}
-              para partilhar em tempo real com toda a igreja.
+                <LogIn className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>Entrar com Google para Publicar</span>
+              </button>
+              {cloudSyncMessage && (
+                <p className="text-xs text-[#9A3412] dark:text-[#FCA5A5] leading-relaxed">
+                  {cloudSyncMessage}
+                </p>
+              )}
+            </div>
+          ) : isCloudSignedIn ? (
+            <p className="text-xs text-[#1F5C3A] dark:text-[#6EE7B7] inline-flex items-center gap-1.5">
+              <Cloud className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span>Sincronização em tempo real ativa{cloudUserName ? ` · ${cloudUserName}` : ''}</span>
             </p>
-          )}
+          ) : null}
 
           <div>
             <label
@@ -151,7 +204,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               disabled={isAnonymous}
               value={isAnonymous ? 'Anónimo' : prayerAuthor}
               onChange={(e) => setPrayerAuthor(e.target.value)}
-              placeholder="Ex.: Joana Silva"
+              placeholder={cloudUserName ? `Ex.: ${cloudUserName}` : 'Ex.: Joana Silva'}
               className="w-full min-h-[46px] px-3.5 rounded-xl border border-[#141E2E]/15 dark:border-white/15 bg-[#FAF8F4] dark:bg-[#0C1320] text-base disabled:opacity-50"
             />
           </div>
@@ -176,6 +229,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
             <textarea
               id="prayer-content"
               rows={4}
+              maxLength={1200}
               value={prayerContent}
               onChange={(e) => setPrayerContent(e.target.value)}
               placeholder="Como podemos orar por si esta semana?"
@@ -184,14 +238,31 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           </div>
 
           {prayerError && (
-            <p className="text-xs text-[#9A3412] dark:text-[#FCA5A5]">{prayerError}</p>
+            <p role="alert" className="text-xs text-[#9A3412] dark:text-[#FCA5A5] leading-relaxed">
+              {prayerError}
+            </p>
+          )}
+
+          {prayerSuccess && (
+            <p
+              role="status"
+              className="text-xs font-medium text-[#1F5C3A] dark:text-[#6EE7B7] flex items-start gap-1.5 leading-relaxed"
+            >
+              <Check className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>{prayerSuccess}</span>
+            </p>
           )}
 
           <button
             type="submit"
-            className="w-full min-h-[48px] px-5 py-2.5 rounded-xl bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] text-sm font-medium hover:opacity-90 transition-opacity"
+            disabled={isSubmitting}
+            className="w-full min-h-[48px] px-5 py-2.5 rounded-xl bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
           >
-            Publicar Pedido no Mural
+            {isSubmitting
+              ? 'A publicar e sincronizar...'
+              : isCloudSignedIn
+                ? 'Publicar Pedido no Mural'
+                : 'Entrar com Google e Publicar'}
           </button>
         </form>
 

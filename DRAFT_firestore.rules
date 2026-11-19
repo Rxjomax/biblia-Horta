@@ -583,15 +583,18 @@ service cloud.firestore {
       }
     }
 
-    // 3. Community Prayer Wall Collection
+    // 3. Community Prayer Wall Collection (Zero PII: public read for congregation feed, verified auth required for writes)
     match /prayerRequests/{requestId} {
-      allow get: if isVerifiedUser() && isValidId(requestId) &&
-        existing().churchId == 'iebhorta' &&
-        (existing().isPublic == true || existing().authorId == request.auth.uid || isAdmin());
+      allow get: if isValidId(requestId) &&
+        existing().churchId == 'iebhorta' && (
+          existing().isPublic == true ||
+          (isVerifiedUser() && (existing().authorId == request.auth.uid || isAdmin()))
+        );
 
-      allow list: if isVerifiedUser() &&
-        resource.data.churchId == 'iebhorta' &&
-        (resource.data.isPublic == true || resource.data.authorId == request.auth.uid);
+      allow list: if resource.data.churchId == 'iebhorta' && (
+        resource.data.isPublic == true ||
+        (isVerifiedUser() && resource.data.authorId == request.auth.uid)
+      );
 
       allow create: if isVerifiedUser() &&
         isValidId(requestId) &&
@@ -632,15 +635,18 @@ service cloud.firestore {
         (existing().authorId == request.auth.uid || isAdmin());
     }
 
-    // 4. Community Challenge Reflections Collection
+    // 4. Community Challenge Reflections Collection (Zero PII: public read for congregation feed, verified auth required for writes)
     match /challengeComments/{commentId} {
-      allow get: if isVerifiedUser() && isValidId(commentId) &&
-        existing().churchId == 'iebhorta' &&
-        (existing().isPublic == true || existing().authorId == request.auth.uid || isAdmin());
+      allow get: if isValidId(commentId) &&
+        existing().churchId == 'iebhorta' && (
+          existing().isPublic == true ||
+          (isVerifiedUser() && (existing().authorId == request.auth.uid || isAdmin()))
+        );
 
-      allow list: if isVerifiedUser() &&
-        resource.data.churchId == 'iebhorta' &&
-        (resource.data.isPublic == true || resource.data.authorId == request.auth.uid);
+      allow list: if resource.data.churchId == 'iebhorta' && (
+        resource.data.isPublic == true ||
+        (isVerifiedUser() && resource.data.authorId == request.auth.uid)
+      );
 
       allow create: if isVerifiedUser() &&
         isValidId(commentId) &&

@@ -46,7 +46,7 @@ test('firestore.rules and firebase-blueprint.json are synchronized and enforce a
   assert.match(rules, /allow list: if isOwner\(userId\) && resource\.data\.ownerId == request\.auth\.uid;/);
   assert.match(
     rules,
-    /allow list: if isVerifiedUser\(\) &&\s*resource\.data\.churchId == 'iebhorta'/
+    /allow list: if resource\.data\.churchId == 'iebhorta' &&\s*\(\s*resource\.data\.isPublic == true/
   );
 
   // Blueprint synchronicity: maxLength constants in blueprint match rules

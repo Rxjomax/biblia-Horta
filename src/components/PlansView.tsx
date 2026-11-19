@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Flame,
+  LogIn,
   MessageSquare,
 } from 'lucide-react';
 import {
@@ -39,8 +40,15 @@ interface PlansViewProps {
   onToggleDayComplete: (planId: string, day: number) => void;
   streak: number;
   challengeComments: CommunityChallengeComment[];
-  onAddChallengeComment: (author: string, day: number, text: string) => void;
+  onAddChallengeComment: (
+    author: string,
+    day: number,
+    text: string
+  ) => Promise<{ synced: boolean; errorMessage?: string }>;
   onOpenBibleChapter: (bookId: string, chapter: number) => void;
+  isCloudSignedIn?: boolean;
+  cloudUserName?: string | null;
+  onSignInGoogle?: () => Promise<boolean>;
 }
 
 export const PlansView: React.FC<PlansViewProps> = ({
@@ -52,6 +60,9 @@ export const PlansView: React.FC<PlansViewProps> = ({
   challengeComments,
   onAddChallengeComment,
   onOpenBibleChapter,
+  isCloudSignedIn = false,
+  cloudUserName = null,
+  onSignInGoogle,
 }) => {
   const activePlan =
     READING_PLANS.find((p) => p.id === activePlanId) ?? READING_PLANS[0];
@@ -101,20 +112,38 @@ export const PlansView: React.FC<PlansViewProps> = ({
   const [commentDay, setCommentDay] = useState(1);
   const [commentText, setCommentText] = useState('');
   const [commentError, setCommentError] = useState('');
+  const [commentSuccess, setCommentSuccess] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
-  const handleSubmitComment = (e: React.FormEvent) => {
+  const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim()) {
+    const trimmed = commentText.trim();
+    if (trimmed.length < 2) {
       setCommentError('Escreva a sua reflexão antes de publicar.');
+      setCommentSuccess('');
       return;
     }
     setCommentError('');
-    onAddChallengeComment(
-      commentAuthor.trim() || 'Membro da IEB Horta',
-      commentDay,
-      commentText.trim()
-    );
-    setCommentText('');
+    setCommentSuccess('');
+    setIsSubmittingComment(true);
+    try {
+      const result = await onAddChallengeComment(
+        commentAuthor.trim() || cloudUserName || 'Membro da IEB Horta',
+        commentDay,
+        trimmed
+      );
+      if (result.synced) {
+        setCommentText('');
+        setCommentSuccess('Reflexão publicada e sincronizada com a igreja.');
+        window.setTimeout(() => setCommentSuccess(''), 5000);
+      } else {
+        setCommentError(
+          result.errorMessage || 'Não foi possível sincronizar a reflexão. Tente novamente.'
+        );
+      }
+    } finally {
+      setIsSubmittingComment(false);
+    }
   };
 
   return (
@@ -433,7 +462,7 @@ export const PlansView: React.FC<PlansViewProps> = ({
                 {COMMUNITY_CHALLENGE_INFO.subtitle}
               </p>
 
-              <form onSubmit={handleSubmitComment} className="mt-5 space-y-3">
+              <form onSubmit={(e) => void handleSubmitComment(e)} className="mt-5 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
                     <label htmlFor="challenge-author" className="sr-only">
@@ -444,7 +473,11 @@ export const PlansView: React.FC<PlansViewProps> = ({
                       type="text"
                       value={commentAuthor}
                       onChange={(e) => setCommentAuthor(e.target.value)}
-                      placeholder="O seu nome (ex.: Ana Silveira)"
+                      placeholder={
+                        cloudUserName
+                          ? `O seu nome (ex.: ${cloudUserName})`
+                          : 'O seu nome (ex.: Ana Silveira)'
+                      }
                       className="w-full min-h-[46px] px-3.5 rounded-xl border border-[#141E2E]/15 dark:border-white/15 bg-[#FAF8F4] dark:bg-[#0C1320] text-base"
                     />
                   </div>
@@ -474,6 +507,7 @@ export const PlansView: React.FC<PlansViewProps> = ({
                   <textarea
                     id="challenge-text"
                     rows={2}
+                    maxLength={1000}
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     placeholder="O que mais lhe falou na leitura de hoje?"
@@ -482,16 +516,47 @@ export const PlansView: React.FC<PlansViewProps> = ({
                 </div>
 
                 {commentError && (
-                  <p className="text-xs text-[#9A3412] dark:text-[#FCA5A5]">{commentError}</p>
+                  <p role="alert" className="text-xs text-[#9A3412] dark:text-[#FCA5A5]">
+                    {commentError}
+                  </p>
                 )}
 
-                <button
-                  type="submit"
-                  className="min-h-[46px] px-5 py-2 rounded-xl bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] text-sm font-medium inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
-                >
-                  <MessageSquare className="w-4 h-4" aria-hidden="true" />
-                  <span>Partilhar Reflexão</span>
-                </button>
+                {commentSuccess && (
+                  <p
+                    role="status"
+                    className="text-xs font-medium text-[#1F5C3A] dark:text-[#6EE7B7] inline-flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span>{commentSuccess}</span>
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="submit"
+                    disabled={isSubmittingComment}
+                    className="min-h-[46px] px-5 py-2 rounded-xl bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] text-sm font-medium inline-flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-60"
+                  >
+                    <MessageSquare className="w-4 h-4" aria-hidden="true" />
+                    <span>
+                      {isSubmittingComment
+                        ? 'A sincronizar...'
+                        : isCloudSignedIn
+                          ? 'Partilhar Reflexão'
+                          : 'Entrar com Google e Partilhar'}
+                    </span>
+                  </button>
+                  {!isCloudSignedIn && onSignInGoogle && (
+                    <button
+                      type="button"
+                      onClick={() => void onSignInGoogle()}
+                      className="min-h-[44px] px-3.5 py-2 rounded-xl border border-[#141E2E]/15 dark:border-white/15 text-xs font-medium text-[#13294B] dark:text-[#D4A84E] inline-flex items-center gap-1.5 hover:bg-black/5 dark:hover:bg-white/5"
+                    >
+                      <LogIn className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Entrar com Google</span>
+                    </button>
+                  )}
+                </div>
               </form>
             </div>
           </div>

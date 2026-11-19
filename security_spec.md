@@ -7,7 +7,7 @@
 3. **PII Isolation**: Visitor welcome cards containing phone numbers or emails (`contact`) are stored exclusively in `/users/{userId}/visitorCards/{cardId}` and are readable ONLY by `isOwner(userId)` or `isAdmin()`. No PII is stored in `/users/{userId}`, `/prayerRequests`, or `/challengeComments`.
 4. **Strict Key & Size Boundaries**: Every `create` and `update` invokes `isValid[Entity](incoming())`, enforcing `keys().hasAll(...)` and `keys().hasOnly(...)`, regex ID patterns (`^[a-zA-Z0-9_\-]+$`), string `.size()` bounds, array `.size()` bounds, and server timestamps (`request.time`).
 5. **Tiered Updates & Immutable Ownership**: `ownerId`, `authorId`, `churchId`, and `createdAt` are immutable across all updates. On `/prayerRequests/{requestId}`, non-authors can ONLY perform the `pray` counter action (`affectedKeys().hasOnly(['prayingCount', 'updatedAt'])` with a `±1` delta).
-6. **Secure List Queries**: Every `allow list` rule evaluates `resource.data` against `request.auth.uid` or verified congregation visibility (`resource.data.churchId == 'iebhorta' && (resource.data.isPublic == true || resource.data.authorId == request.auth.uid)`).
+6. **Secure List Queries**: Every `allow list` rule evaluates `resource.data` against `request.auth.uid` (for personal subcollections) or strict congregation visibility (`resource.data.churchId == 'iebhorta' && (resource.data.isPublic == true || (isVerifiedUser() && resource.data.authorId == request.auth.uid))` for zero-PII shared walls). All writes require verified Google Authentication.
 
 ---
 

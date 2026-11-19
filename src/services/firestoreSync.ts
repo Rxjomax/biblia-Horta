@@ -14,6 +14,7 @@ import {
 import type { User } from 'firebase/auth';
 import {
   OperationType,
+  auth,
   clampString,
   db,
   handleFirestoreError,
@@ -42,10 +43,20 @@ export interface CloudWorkspaceSeed {
 }
 
 const pendingWorkspaceEnsures = new Map<string, Promise<{ created: boolean }>>();
+const confirmedWorkspaceUids = new Set<string>();
+
+const DEFAULT_WORKSPACE_SEED: CloudWorkspaceSeed = {
+  theme: 'light',
+  bibleVersion: 'NVI',
+  secondaryVersion: 'ARC',
+  activePlanId: 'vencer-medo-7',
+  streak: 1,
+  lastReadDate: null,
+};
 
 export async function ensureUserWorkspaceDoc(
   user: User,
-  seed: CloudWorkspaceSeed
+  seed: CloudWorkspaceSeed = DEFAULT_WORKSPACE_SEED
 ): Promise<{ created: boolean }> {
   const uid = sanitizeFirestoreId(user.uid);
   const existingPromise = pendingWorkspaceEnsures.get(uid);
@@ -79,8 +90,10 @@ export async function ensureUserWorkspaceDoc(
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
+        confirmedWorkspaceUids.add(uid);
         return { created: true };
       }
+      confirmedWorkspaceUids.add(uid);
       return { created: false };
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
@@ -91,6 +104,26 @@ export async function ensureUserWorkspaceDoc(
 
   pendingWorkspaceEnsures.set(uid, run);
   return run;
+}
+
+/**
+ * Guarantees the parent `/users/{uid}` Master Gate document exists before
+ * any subcollection or community write executes.
+ */
+async function ensureWorkspaceReadyForUid(uid: string): Promise<void> {
+  const safeUid = sanitizeFirestoreId(uid);
+  const pending = pendingWorkspaceEnsures.get(safeUid);
+  if (pending) {
+    await pending;
+    return;
+  }
+  if (confirmedWorkspaceUids.has(safeUid)) {
+    return;
+  }
+  const current = auth.currentUser;
+  if (current && sanitizeFirestoreId(current.uid) === safeUid) {
+    await ensureUserWorkspaceDoc(current, DEFAULT_WORKSPACE_SEED);
+  }
 }
 
 export async function syncWorkspacePreferencesToCloud(
@@ -126,6 +159,7 @@ export async function syncWorkspacePreferencesToCloud(
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      confirmedWorkspaceUids.add(safeUid);
       return;
     }
 
@@ -139,6 +173,7 @@ export async function syncWorkspacePreferencesToCloud(
       lastReadDate: (patch.lastReadDate ?? '').slice(0, 20),
       updatedAt: serverTimestamp(),
     });
+    confirmedWorkspaceUids.add(safeUid);
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
@@ -146,6 +181,7 @@ export async function syncWorkspacePreferencesToCloud(
 
 export async function saveSermonNoteToCloud(uid: string, note: SermonNote): Promise<void> {
   const safeUid = sanitizeFirestoreId(uid);
+  await ensureWorkspaceReadyForUid(safeUid);
   const noteId = sanitizeFirestoreId(note.id);
   const path = `users/${safeUid}/sermonNotes/${noteId}`;
   const ref = doc(db, 'users', safeUid, 'sermonNotes', noteId);
@@ -178,6 +214,7 @@ export async function saveSermonNoteToCloud(uid: string, note: SermonNote): Prom
 
 export async function deleteSermonNoteFromCloud(uid: string, noteIdRaw: string): Promise<void> {
   const safeUid = sanitizeFirestoreId(uid);
+  await ensureWorkspaceReadyForUid(safeUid);
   const noteId = sanitizeFirestoreId(noteIdRaw);
   const path = `users/${safeUid}/sermonNotes/${noteId}`;
   try {
@@ -193,6 +230,7 @@ export async function saveVerseNoteToCloud(
   verseKey: string
 ): Promise<void> {
   const safeUid = sanitizeFirestoreId(uid);
+  await ensureWorkspaceReadyForUid(safeUid);
   const docId = sanitizeFirestoreId(verseKey);
   const path = `users/${safeUid}/verseNotes/${docId}`;
   const ref = doc(db, 'users', safeUid, 'verseNotes', docId);
@@ -239,6 +277,7 @@ export async function syncBookmarkToCloud(
   verseKey: string
 ): Promise<void> {
   const safeUid = sanitizeFirestoreId(uid);
+  await ensureWorkspaceReadyForUid(safeUid);
   const docId = sanitizeFirestoreId(verseKey);
   const path = `users/${safeUid}/bookmarks/${docId}`;
   const ref = doc(db, 'users', safeUid, 'bookmarks', docId);
@@ -286,6 +325,7 @@ export async function syncHighlightToCloud(
   updatedAtLabel: string
 ): Promise<void> {
   const safeUid = sanitizeFirestoreId(uid);
+  await ensureWorkspaceReadyForUid(safeUid);
   const docId = sanitizeFirestoreId(verseKey);
   const path = `users/${safeUid}/highlights/${docId}`;
   const ref = doc(db, 'users', safeUid, 'highlights', docId);
@@ -328,6 +368,7 @@ export async function syncPlanProgressToCloud(
   completedDays: number[]
 ): Promise<void> {
   const safeUid = sanitizeFirestoreId(uid);
+  await ensureWorkspaceReadyForUid(safeUid);
   const planId = sanitizeFirestoreId(planIdRaw);
   const path = `users/${safeUid}/planProgress/${planId}`;
   const ref = doc(db, 'users', safeUid, 'planProgress', planId);
@@ -361,11 +402,14 @@ export async function saveVisitorCardToCloud(
   card: VisitorSubmission
 ): Promise<void> {
   const safeUid = sanitizeFirestoreId(uid);
+  await ensureWorkspaceReadyForUid(safeUid);
   const cardId = sanitizeFirestoreId(card.id);
   const path = `users/${safeUid}/visitorCards/${cardId}`;
   const ref = doc(db, 'users', safeUid, 'visitorCards', cardId);
 
   try {
+    const snap = await getDoc(ref);
+    if (snap.exists()) return;
     await setDoc(ref, {
       id: cardId,
       ownerId: safeUid,
@@ -385,11 +429,15 @@ export async function createPrayerRequestInCloud(
   req: PrayerRequest
 ): Promise<void> {
   const safeUid = sanitizeFirestoreId(uid);
+  await ensureWorkspaceReadyForUid(safeUid);
   const reqId = sanitizeFirestoreId(req.id);
   const path = `prayerRequests/${reqId}`;
   const ref = doc(db, 'prayerRequests', reqId);
 
   try {
+    const existing = await getDoc(ref);
+    if (existing.exists()) return;
+
     await setDoc(ref, {
       id: reqId,
       churchId: 'iebhorta',
@@ -412,10 +460,10 @@ export async function createPrayerRequestInCloud(
 export async function togglePrayerCountInCloud(
   requestIdRaw: string,
   delta: 1 | -1
-): Promise<void> {
+): Promise<boolean> {
   // Initial sample prayer items (pr-1..pr-4) exist only locally unless published in Firestore
   if (/^pr-\d+$/.test(requestIdRaw)) {
-    return;
+    return false;
   }
 
   const reqId = sanitizeFirestoreId(requestIdRaw);
@@ -424,14 +472,15 @@ export async function togglePrayerCountInCloud(
 
   try {
     const snap = await getDoc(ref);
-    if (!snap.exists()) return;
+    if (!snap.exists()) return false;
     const current = Number(snap.data().prayingCount ?? 0);
     const nextCount = Math.max(0, current + delta);
-    if (nextCount === current) return;
+    if (nextCount === current) return false;
     await updateDoc(ref, {
       prayingCount: nextCount,
       updatedAt: serverTimestamp(),
     });
+    return true;
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
@@ -442,11 +491,15 @@ export async function createChallengeCommentInCloud(
   comment: CommunityChallengeComment
 ): Promise<void> {
   const safeUid = sanitizeFirestoreId(uid);
+  await ensureWorkspaceReadyForUid(safeUid);
   const commentId = sanitizeFirestoreId(comment.id);
   const path = `challengeComments/${commentId}`;
   const ref = doc(db, 'challengeComments', commentId);
 
   try {
+    const existing = await getDoc(ref);
+    if (existing.exists()) return;
+
     await setDoc(ref, {
       id: commentId,
       churchId: 'iebhorta',
@@ -464,7 +517,117 @@ export async function createChallengeCommentInCloud(
   }
 }
 
-export interface CloudSubscriptionsCallbacks {
+const extractTimestampMs = (d: Record<string, unknown>, id: string): number => {
+  const ts = d.createdAt as { toMillis?: () => number } | undefined;
+  if (ts && typeof ts.toMillis === 'function') {
+    return ts.toMillis();
+  }
+  const match = /(\d{10,})$/.exec(id);
+  return match ? Number(match[1]) : 0;
+};
+
+export interface PublicChurchSubscriptionsCallbacks {
+  onPrayerRequests: (requests: PrayerRequest[]) => void;
+  onChallengeComments: (comments: CommunityChallengeComment[]) => void;
+  onError?: (path: string, error: unknown) => void;
+}
+
+/**
+ * Always-on real-time listener for shared public congregation collections
+ * (Mural de Oração & Reflexões do Desafio — zero PII).
+ * Runs across website and mobile PWA even before the user signs in.
+ */
+export function subscribePublicChurchData(
+  callbacks: PublicChurchSubscriptionsCallbacks
+): Unsubscribe {
+  const unsubs: Unsubscribe[] = [];
+
+  // 1. Community Prayer Requests
+  const prayerPath = 'prayerRequests';
+  unsubs.push(
+    onSnapshot(
+      query(
+        collection(db, 'prayerRequests'),
+        where('churchId', '==', 'iebhorta'),
+        where('isPublic', '==', true)
+      ),
+      (snap) => {
+        if (snap.empty) return;
+        const list: PrayerRequest[] = snap.docs
+          .map((docSnap) => {
+            const d = docSnap.data();
+            const id = String(d.id ?? docSnap.id);
+            return {
+              sortMs: extractTimestampMs(d, id),
+              item: {
+                id,
+                author: String(d.author ?? 'Pedido Anónimo'),
+                isAnonymous: Boolean(d.isAnonymous),
+                category: (d.category as PrayerRequest['category']) ?? 'Igreja',
+                content: String(d.content ?? ''),
+                createdAt: String(d.createdAtLabel ?? 'Recente'),
+                prayingCount: Number(d.prayingCount ?? 1),
+              } satisfies PrayerRequest,
+            };
+          })
+          .sort((a, b) => b.sortMs - a.sortMs)
+          .map((entry) => entry.item);
+        callbacks.onPrayerRequests(list);
+      },
+      (err) => {
+        if (callbacks.onError) {
+          callbacks.onError(prayerPath, err);
+        }
+        handleFirestoreError(err, OperationType.LIST, prayerPath);
+      }
+    )
+  );
+
+  // 2. Community Challenge Comments
+  const commentsPath = 'challengeComments';
+  unsubs.push(
+    onSnapshot(
+      query(
+        collection(db, 'challengeComments'),
+        where('churchId', '==', 'iebhorta'),
+        where('isPublic', '==', true)
+      ),
+      (snap) => {
+        if (snap.empty) return;
+        const list: CommunityChallengeComment[] = snap.docs
+          .map((docSnap) => {
+            const d = docSnap.data();
+            const id = String(d.id ?? docSnap.id);
+            return {
+              sortMs: extractTimestampMs(d, id),
+              item: {
+                id,
+                author: String(d.author ?? 'Membro IEB Horta'),
+                day: Number(d.day ?? 1),
+                text: String(d.text ?? ''),
+                createdAt: String(d.createdAtLabel ?? 'Recente'),
+              } satisfies CommunityChallengeComment,
+            };
+          })
+          .sort((a, b) => b.sortMs - a.sortMs)
+          .map((entry) => entry.item);
+        callbacks.onChallengeComments(list);
+      },
+      (err) => {
+        if (callbacks.onError) {
+          callbacks.onError(commentsPath, err);
+        }
+        handleFirestoreError(err, OperationType.LIST, commentsPath);
+      }
+    )
+  );
+
+  return () => {
+    unsubs.forEach((u) => u());
+  };
+}
+
+export interface UserWorkspaceSubscriptionsCallbacks {
   onWorkspace: (data: Partial<CloudWorkspaceSeed>) => void;
   onSermonNotes: (notes: SermonNote[]) => void;
   onVerseNotes: (notes: Record<string, VerseNote>) => void;
@@ -472,13 +635,15 @@ export interface CloudSubscriptionsCallbacks {
   onHighlights: (highlights: Record<string, VerseHighlight>) => void;
   onPlanProgress: (progress: Record<string, number[]>) => void;
   onVisitorCards: (cards: VisitorSubmission[]) => void;
-  onPrayerRequests: (requests: PrayerRequest[]) => void;
-  onChallengeComments: (comments: CommunityChallengeComment[]) => void;
 }
 
-export function subscribeUserAndChurchData(
+/**
+ * Authenticated real-time listeners for personal member workspace documents
+ * (preferences, sermon notes, verse notes, bookmarks, highlights, reading plans, visitor cards).
+ */
+export function subscribeUserWorkspaceData(
   user: User,
-  callbacks: CloudSubscriptionsCallbacks
+  callbacks: UserWorkspaceSubscriptionsCallbacks
 ): Unsubscribe {
   const uid = sanitizeFirestoreId(user.uid);
   const unsubs: Unsubscribe[] = [];
@@ -504,7 +669,7 @@ export function subscribeUserAndChurchData(
     )
   );
 
-  // 2. Sermon Notes Subcollection (Secure List Query checks ownerId == request.auth.uid)
+  // 2. Sermon Notes Subcollection
   const sermonNotesPath = `users/${uid}/sermonNotes`;
   let hadSermonNotes = false;
   unsubs.push(
@@ -659,85 +824,6 @@ export function subscribeUserAndChurchData(
         callbacks.onVisitorCards(list);
       },
       (err) => handleFirestoreError(err, OperationType.LIST, visitorCardsPath)
-    )
-  );
-
-  const extractTimestampMs = (d: Record<string, unknown>, id: string): number => {
-    const ts = d.createdAt as { toMillis?: () => number } | undefined;
-    if (ts && typeof ts.toMillis === 'function') {
-      return ts.toMillis();
-    }
-    const match = /(\d{10,})$/.exec(id);
-    return match ? Number(match[1]) : 0;
-  };
-
-  // 8. Community Prayer Requests (Secure List Query with churchId == 'iebhorta' && isPublic == true)
-  const prayerPath = 'prayerRequests';
-  unsubs.push(
-    onSnapshot(
-      query(
-        collection(db, 'prayerRequests'),
-        where('churchId', '==', 'iebhorta'),
-        where('isPublic', '==', true)
-      ),
-      (snap) => {
-        if (snap.empty) return;
-        const list: PrayerRequest[] = snap.docs
-          .map((docSnap) => {
-            const d = docSnap.data();
-            const id = String(d.id ?? docSnap.id);
-            return {
-              sortMs: extractTimestampMs(d, id),
-              item: {
-                id,
-                author: String(d.author ?? 'Pedido Anónimo'),
-                isAnonymous: Boolean(d.isAnonymous),
-                category: (d.category as PrayerRequest['category']) ?? 'Igreja',
-                content: String(d.content ?? ''),
-                createdAt: String(d.createdAtLabel ?? 'Recente'),
-                prayingCount: Number(d.prayingCount ?? 1),
-              } satisfies PrayerRequest,
-            };
-          })
-          .sort((a, b) => b.sortMs - a.sortMs)
-          .map((entry) => entry.item);
-        callbacks.onPrayerRequests(list);
-      },
-      (err) => handleFirestoreError(err, OperationType.LIST, prayerPath)
-    )
-  );
-
-  // 9. Community Challenge Comments
-  const commentsPath = 'challengeComments';
-  unsubs.push(
-    onSnapshot(
-      query(
-        collection(db, 'challengeComments'),
-        where('churchId', '==', 'iebhorta'),
-        where('isPublic', '==', true)
-      ),
-      (snap) => {
-        if (snap.empty) return;
-        const list: CommunityChallengeComment[] = snap.docs
-          .map((docSnap) => {
-            const d = docSnap.data();
-            const id = String(d.id ?? docSnap.id);
-            return {
-              sortMs: extractTimestampMs(d, id),
-              item: {
-                id,
-                author: String(d.author ?? 'Membro IEB Horta'),
-                day: Number(d.day ?? 1),
-                text: String(d.text ?? ''),
-                createdAt: String(d.createdAtLabel ?? 'Recente'),
-              } satisfies CommunityChallengeComment,
-            };
-          })
-          .sort((a, b) => b.sortMs - a.sortMs)
-          .map((entry) => entry.item);
-        callbacks.onChallengeComments(list);
-      },
-      (err) => handleFirestoreError(err, OperationType.LIST, commentsPath)
     )
   );
 
