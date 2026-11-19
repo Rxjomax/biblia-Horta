@@ -200,14 +200,18 @@ export const MoreView: React.FC<MoreViewProps> = ({
               <span
                 className={`text-xs font-medium px-2.5 py-0.5 rounded-md border ${
                   cloudUserEmail
-                    ? 'border-[#1F5C3A]/30 bg-[#1F5C3A]/10 text-[#1F5C3A] dark:border-[#6EE7B7]/30 dark:text-[#6EE7B7]'
+                    ? cloudSyncStatus === 'error'
+                      ? 'border-[#9A3412]/30 bg-[#9A3412]/10 text-[#9A3412] dark:border-[#FCA5A5]/30 dark:text-[#FCA5A5]'
+                      : 'border-[#1F5C3A]/30 bg-[#1F5C3A]/10 text-[#1F5C3A] dark:border-[#6EE7B7]/30 dark:text-[#6EE7B7]'
                     : 'border-[#141E2E]/15 dark:border-white/15 text-[#556173] dark:text-[#A3B0C2]'
                 }`}
               >
                 {cloudUserEmail
                   ? cloudSyncStatus === 'syncing'
                     ? 'A sincronizar com a nuvem...'
-                    : 'Sincronização em Tempo Real Ativa'
+                    : cloudSyncStatus === 'error'
+                      ? 'Sincronização Pendente'
+                      : 'Sincronização em Tempo Real Ativa'
                   : 'Guardado Neste Dispositivo (Pronto para Nuvem)'}
               </span>
             </div>

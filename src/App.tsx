@@ -221,6 +221,7 @@ export default function App() {
       }
 
       setCloudSyncStatus('syncing');
+      setCloudSyncMessage('');
       try {
         const { created } = await ensureUserWorkspaceDoc(user, {
           theme,
@@ -230,21 +231,6 @@ export default function App() {
           streak,
           lastReadDate,
         });
-
-        // Push any locally created community prayer requests / challenge comments queued prior to sign-in
-        const latestPersisted = loadPersistedState();
-        const localPendingPrayers = latestPersisted.prayerRequests.filter((r) =>
-          r.id.startsWith('pr_')
-        );
-        for (const req of localPendingPrayers) {
-          await createPrayerRequestInCloud(user.uid, req);
-        }
-        const localPendingComments = latestPersisted.challengeComments.filter((c) =>
-          c.id.startsWith('cc_')
-        );
-        for (const comment of localPendingComments) {
-          await createChallengeCommentInCloud(user.uid, comment);
-        }
 
         unsubFirestore = subscribeUserWorkspaceData(user, {
           onWorkspace: (data) => {
@@ -302,16 +288,55 @@ export default function App() {
           },
         });
 
+        // Push any locally created community prayer requests / challenge comments queued prior to sign-in
+        const latestPersisted = loadPersistedState();
+        const localPendingPrayers = latestPersisted.prayerRequests.filter((r) =>
+          r.id.startsWith('pr_')
+        );
+        for (const req of localPendingPrayers) {
+          try {
+            await createPrayerRequestInCloud(user.uid, req);
+          } catch (itemErr) {
+            console.error('Falha ao enviar pedido pendente para a nuvem:', itemErr);
+          }
+        }
+        const localPendingComments = latestPersisted.challengeComments.filter((c) =>
+          c.id.startsWith('cc_')
+        );
+        for (const comment of localPendingComments) {
+          try {
+            await createChallengeCommentInCloud(user.uid, comment);
+          } catch (itemErr) {
+            console.error('Falha ao enviar reflexão pendente para a nuvem:', itemErr);
+          }
+        }
+
         if (created) {
           await handleForceCloudSync(user);
         } else {
           setCloudSyncStatus('synced');
+          const timeStr = new Intl.DateTimeFormat('pt-PT', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }).format(new Date());
+          setCloudSyncMessage(`Dados sincronizados com a base de dados Firebase às ${timeStr}.`);
         }
-      } catch {
+      } catch (err) {
+        const raw = err instanceof Error ? err.message : String(err);
         setCloudSyncStatus('error');
-        setCloudSyncMessage(
-          'Não foi possível ligar à base de dados Firebase neste momento. Os seus dados locais continuam seguros.'
-        );
+        if (raw.toLowerCase().includes('quota')) {
+          setCloudSyncMessage(
+            'Limite diário gratuito do Firebase atingido temporariamente. Os seus dados locais continuam seguros.'
+          );
+        } else if (raw.toLowerCase().includes('offline') || raw.toLowerCase().includes('unavailable')) {
+          setCloudSyncMessage(
+            'Sem ligação estável ao servidor Firebase neste momento. Os seus dados locais continuam seguros.'
+          );
+        } else {
+          setCloudSyncMessage(
+            'Não foi possível ligar à base de dados Firebase neste momento. Clique em «Sincronizar Agora» para tentar novamente.'
+          );
+        }
       }
     });
 

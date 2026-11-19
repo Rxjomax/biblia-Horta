@@ -45,6 +45,87 @@ export interface CloudWorkspaceSeed {
 const pendingWorkspaceEnsures = new Map<string, Promise<{ created: boolean }>>();
 const confirmedWorkspaceUids = new Set<string>();
 
+const VALID_BIBLE_VERSIONS = new Set<BibleVersionId>([
+  'ARC',
+  'ARA',
+  'NVI',
+  'OL',
+  'A21',
+  'NAA',
+  'NTLH',
+]);
+const VALID_BOOKMARK_THEMES = new Set<BookmarkTheme>([
+  'Fé',
+  'Ansiedade',
+  'Família',
+  'Gratidão',
+  'Esperança',
+]);
+const VALID_HIGHLIGHT_COLORS = new Set<HighlightColor>([
+  'amber',
+  'navy',
+  'olive',
+  'terracotta',
+]);
+const VALID_PRAYER_CATEGORIES = new Set<PrayerRequest['category']>([
+  'Família',
+  'Saúde',
+  'Gratidão',
+  'Orientação',
+  'Igreja',
+]);
+const VALID_VISITOR_CHANNELS = new Set<VisitorSubmission['preferredChannel']>([
+  'WhatsApp / Telemóvel',
+  'Email',
+  'Pessoalmente no domingo',
+]);
+
+function safeTheme(value: unknown): 'light' | 'dark' {
+  return value === 'dark' ? 'dark' : 'light';
+}
+
+function safeBibleVersion(value: unknown, fallback: BibleVersionId): BibleVersionId {
+  return typeof value === 'string' && VALID_BIBLE_VERSIONS.has(value as BibleVersionId)
+    ? (value as BibleVersionId)
+    : fallback;
+}
+
+function safeActivePlanId(value: unknown): string {
+  const raw = typeof value === 'string' && value.trim() ? value : 'vencer-medo-7';
+  return sanitizeFirestoreId(raw).slice(0, 80);
+}
+
+function safeStreak(value: unknown): number {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.max(0, Math.min(10000, Math.floor(num)));
+}
+
+function safeBookmarkTheme(value: unknown): BookmarkTheme {
+  return typeof value === 'string' && VALID_BOOKMARK_THEMES.has(value as BookmarkTheme)
+    ? (value as BookmarkTheme)
+    : 'Fé';
+}
+
+function safeHighlightColor(value: unknown): HighlightColor {
+  return typeof value === 'string' && VALID_HIGHLIGHT_COLORS.has(value as HighlightColor)
+    ? (value as HighlightColor)
+    : 'amber';
+}
+
+function safePrayerCategory(value: unknown): PrayerRequest['category'] {
+  return typeof value === 'string' && VALID_PRAYER_CATEGORIES.has(value as PrayerRequest['category'])
+    ? (value as PrayerRequest['category'])
+    : 'Igreja';
+}
+
+function safeVisitorChannel(value: unknown): VisitorSubmission['preferredChannel'] {
+  return typeof value === 'string' &&
+    VALID_VISITOR_CHANNELS.has(value as VisitorSubmission['preferredChannel'])
+    ? (value as VisitorSubmission['preferredChannel'])
+    : 'WhatsApp / Telemóvel';
+}
+
 const DEFAULT_WORKSPACE_SEED: CloudWorkspaceSeed = {
   theme: 'light',
   bibleVersion: 'NVI',
@@ -81,11 +162,11 @@ export async function ensureUserWorkspaceDoc(
         await setDoc(ref, {
           ownerId: uid,
           displayName,
-          theme: seed.theme,
-          bibleVersion: seed.bibleVersion,
-          secondaryVersion: seed.secondaryVersion,
-          activePlanId: sanitizeFirestoreId(seed.activePlanId),
-          streak: Math.max(0, Math.min(10000, Math.floor(seed.streak))),
+          theme: safeTheme(seed.theme),
+          bibleVersion: safeBibleVersion(seed.bibleVersion, 'NVI'),
+          secondaryVersion: safeBibleVersion(seed.secondaryVersion, 'ARC'),
+          activePlanId: safeActivePlanId(seed.activePlanId),
+          streak: safeStreak(seed.streak),
           lastReadDate: (seed.lastReadDate ?? '').slice(0, 20),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -150,11 +231,11 @@ export async function syncWorkspacePreferencesToCloud(
       await setDoc(ref, {
         ownerId: safeUid,
         displayName,
-        theme: patch.theme,
-        bibleVersion: patch.bibleVersion,
-        secondaryVersion: patch.secondaryVersion,
-        activePlanId: sanitizeFirestoreId(patch.activePlanId),
-        streak: Math.max(0, Math.min(10000, Math.floor(patch.streak))),
+        theme: safeTheme(patch.theme),
+        bibleVersion: safeBibleVersion(patch.bibleVersion, 'NVI'),
+        secondaryVersion: safeBibleVersion(patch.secondaryVersion, 'ARC'),
+        activePlanId: safeActivePlanId(patch.activePlanId),
+        streak: safeStreak(patch.streak),
         lastReadDate: (patch.lastReadDate ?? '').slice(0, 20),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -165,11 +246,11 @@ export async function syncWorkspacePreferencesToCloud(
 
     await updateDoc(ref, {
       displayName,
-      theme: patch.theme,
-      bibleVersion: patch.bibleVersion,
-      secondaryVersion: patch.secondaryVersion,
-      activePlanId: sanitizeFirestoreId(patch.activePlanId),
-      streak: Math.max(0, Math.min(10000, Math.floor(patch.streak))),
+      theme: safeTheme(patch.theme),
+      bibleVersion: safeBibleVersion(patch.bibleVersion, 'NVI'),
+      secondaryVersion: safeBibleVersion(patch.secondaryVersion, 'ARC'),
+      activePlanId: safeActivePlanId(patch.activePlanId),
+      streak: safeStreak(patch.streak),
       lastReadDate: (patch.lastReadDate ?? '').slice(0, 20),
       updatedAt: serverTimestamp(),
     });
@@ -292,9 +373,10 @@ export async function syncBookmarkToCloud(
     }
 
     const snap = await getDoc(ref);
+    const normalizedTheme = safeBookmarkTheme(bookmark.theme);
     if (snap.exists()) {
       await updateDoc(ref, {
-        theme: bookmark.theme,
+        theme: normalizedTheme,
         createdAtLabel: clampString(bookmark.createdAt, 1, 40, 'Hoje'),
         updatedAt: serverTimestamp(),
       });
@@ -307,7 +389,7 @@ export async function syncBookmarkToCloud(
         bookName: clampString(bookmark.bookName, 1, 60, 'Salmos'),
         chapter: Math.max(1, Math.min(150, Math.floor(bookmark.chapter))),
         verse: Math.max(1, Math.min(176, Math.floor(bookmark.verse))),
-        theme: bookmark.theme,
+        theme: normalizedTheme,
         createdAtLabel: clampString(bookmark.createdAt, 1, 40, 'Hoje'),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -340,9 +422,10 @@ export async function syncHighlightToCloud(
     }
 
     const snap = await getDoc(ref);
+    const normalizedColor = safeHighlightColor(color);
     if (snap.exists()) {
       await updateDoc(ref, {
-        color,
+        color: normalizedColor,
         updatedAtLabel: clampString(updatedAtLabel, 1, 40, 'Hoje'),
         updatedAt: serverTimestamp(),
       });
@@ -351,7 +434,7 @@ export async function syncHighlightToCloud(
         id: docId,
         ownerId: safeUid,
         key: clampString(verseKey, 3, 80, 'salmos:121:1'),
-        color,
+        color: normalizedColor,
         updatedAtLabel: clampString(updatedAtLabel, 1, 40, 'Hoje'),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -415,7 +498,7 @@ export async function saveVisitorCardToCloud(
       ownerId: safeUid,
       name: clampString(card.name, 1, 120, 'Visitante'),
       contact: clampString(card.contact, 3, 160, '---'),
-      preferredChannel: card.preferredChannel,
+      preferredChannel: safeVisitorChannel(card.preferredChannel),
       message: card.message.trim().slice(0, 1000),
       createdAt: serverTimestamp(),
     });
@@ -444,7 +527,7 @@ export async function createPrayerRequestInCloud(
       authorId: safeUid,
       author: clampString(req.isAnonymous ? 'Pedido Anónimo' : req.author, 1, 80, 'Pedido Anónimo'),
       isAnonymous: Boolean(req.isAnonymous),
-      category: req.category,
+      category: safePrayerCategory(req.category),
       content: clampString(req.content, 3, 1200, 'Oração'),
       createdAtLabel: clampString(req.createdAt, 1, 40, 'Agora mesmo'),
       prayingCount: 1,

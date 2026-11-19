@@ -54,4 +54,14 @@ test('firestore.rules and firebase-blueprint.json are synchronized and enforce a
   assert.match(rules, /data\.content\.size\(\) <= 8000/);
   assert.equal(blueprint.entities.PrayerRequestDoc.properties.content.maxLength, 1200);
   assert.match(rules, /data\.content\.size\(\) <= 1200/);
+
+  // Regression guard: allow get on community collections must handle non-existent docs (resource == null) for verified users
+  assert.match(
+    rules,
+    /match \/prayerRequests\/\{requestId\}[\s\S]*?\(resource == null && isVerifiedUser\(\)\)/
+  );
+  assert.match(
+    rules,
+    /match \/challengeComments\/\{commentId\}[\s\S]*?\(resource == null && isVerifiedUser\(\)\)/
+  );
 });
