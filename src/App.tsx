@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { BibleView } from './components/BibleView';
 import { CommunityView } from './components/CommunityView';
+import { DevotionalCarouselModal } from './components/DevotionalCarouselModal';
 import { HomeView } from './components/HomeView';
 import { MoreView } from './components/MoreView';
 import { Navigation } from './components/Navigation';
@@ -39,6 +40,7 @@ import type {
   CommunityChallengeComment,
   HighlightColor,
   NotificationSettings,
+  PastoralDevotional,
   PrayerRequest,
   ReaderSettings,
   SermonNote,
@@ -48,6 +50,7 @@ import type {
   VisitorSubmission,
 } from './types';
 import { makeVerseKey, updateStreakOnRead } from './utils/bible';
+import type { DevotionalCarouselPageCount } from './utils/devotionalCarousel';
 import { loadPersistedState, savePersistedKey } from './utils/storage';
 
 export default function App() {
@@ -110,6 +113,19 @@ export default function App() {
     open: false,
     referenceLabel: '',
     verseText: '',
+  });
+
+  // Daily Devotional 3/4-page shareable carousel modal
+  const [devotionalCarouselData, setDevotionalCarouselData] = useState<{
+    open: boolean;
+    devotional: PastoralDevotional | null;
+    verseText: string;
+    pageCount: DevotionalCarouselPageCount;
+  }>({
+    open: false,
+    devotional: null,
+    verseText: '',
+    pageCount: 4,
   });
 
   // Firebase Auth & Firestore Cloud state
@@ -942,6 +958,14 @@ export default function App() {
               onToggleDayComplete={handleToggleDayComplete}
               onOpenBibleChapter={handleOpenBibleChapter}
               onOpenShareVerse={handleOpenShareVerse}
+              onOpenShareDevotionalCarousel={(devotional, verseText, pageCount) =>
+                setDevotionalCarouselData({
+                  open: true,
+                  devotional,
+                  verseText,
+                  pageCount,
+                })
+              }
               onOpenPlansTab={() => {
                 setActiveTab('planos');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1090,6 +1114,15 @@ export default function App() {
         referenceLabel={shareModalData.referenceLabel}
         verseText={shareModalData.verseText}
         versionLabel={bibleVersion}
+      />
+
+      <DevotionalCarouselModal
+        isOpen={devotionalCarouselData.open}
+        onClose={() => setDevotionalCarouselData((prev) => ({ ...prev, open: false }))}
+        devotional={devotionalCarouselData.devotional}
+        verseText={devotionalCarouselData.verseText}
+        versionLabel={bibleVersion}
+        initialPageCount={devotionalCarouselData.pageCount}
       />
 
       <SocialQRModal

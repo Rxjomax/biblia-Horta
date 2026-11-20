@@ -119,6 +119,7 @@ export interface PastoralDevotional {
   author: string;
   reference: VerseReference;
   body: string[];
+  application?: string;
   prayer: string;
 }
 

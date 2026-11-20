@@ -20,6 +20,7 @@ import { useSpeechReader } from '../hooks/useSpeechReader';
 import type {
   BibleCorpus,
   BibleVersionId,
+  PastoralDevotional,
   PrayerRequest,
   SermonNote,
 } from '../types';
@@ -30,6 +31,8 @@ import {
   parseBibleReference,
   type DetectedBibleRef,
 } from '../utils/bible';
+import type { DevotionalCarouselPageCount } from '../utils/devotionalCarousel';
+import { DailyDevotionalSection } from './DailyDevotionalSection';
 
 interface HomeViewProps {
   bibleVersion: BibleVersionId;
@@ -40,6 +43,11 @@ interface HomeViewProps {
   onToggleDayComplete: (planId: string, day: number) => void;
   onOpenBibleChapter: (bookId: string, chapter: number, verse?: number) => void;
   onOpenShareVerse: (referenceLabel: string, verseText: string) => void;
+  onOpenShareDevotionalCarousel: (
+    devotional: PastoralDevotional,
+    verseText: string,
+    pageCount: DevotionalCarouselPageCount
+  ) => void;
   onOpenPlansTab: () => void;
   onOpenNotesTab: (noteId?: string) => void;
   onOpenCommunityTab: () => void;
@@ -69,6 +77,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onToggleDayComplete,
   onOpenBibleChapter,
   onOpenShareVerse,
+  onOpenShareDevotionalCarousel,
   onOpenPlansTab,
   onOpenNotesTab,
   onOpenCommunityTab,
@@ -343,6 +352,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </div>
       </section>
+
+      {/* Daily Devotional 3/4-Page Interactive Carousel */}
+      <DailyDevotionalSection
+        bibleVersion={bibleVersion}
+        onOpenBibleChapter={onOpenBibleChapter}
+        onOpenShareCarousel={onOpenShareDevotionalCarousel}
+      />
 
       {/* Active Reading Plan Today + Quick Message Notes (Asymmetric 7/5 Split) */}
       <section aria-labelledby="daily-rhythm-heading" className="pt-1">

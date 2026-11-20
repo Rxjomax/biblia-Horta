@@ -148,40 +148,101 @@ export const LATEST_SERMON: SermonItem = {
 export const PASTORAL_DEVOTIONALS: PastoralDevotional[] = [
   {
     id: 'dev-1',
-    date: 'Hoje · 16 de Novembro',
+    date: 'Devocional 1 · Confiança',
     title: 'Olhar acima do horizonte do mar',
     author: 'Pr. Duarte Medeiros',
     reference: { bookId: 'salmos', bookName: 'Salmos', chapter: 121, verse: 1 },
     body: [
       'Quem vive numa ilha aprende depressa a ler os sinais do céu e do oceano. Há manhãs de neblina densa sobre o canal do Faial em que a linha do Pico desaparece por completo. O salmista conhece essa sensação de olhar em volta e perguntar: de onde me virá o socorro?',
       'A resposta não nasce da paisagem, nem da força das nossas mãos, mas de quem criou os montes e o mar. O mesmo Deus que sustenta as ilhas no meio do Atlântico guarda a tua saída e a tua entrada nesta semana.',
-      'Antes de responder às urgências do dia, toma dois minutos de silêncio e entrega o primeiro pensamento a Ele.',
     ],
+    application:
+      'Antes de abrir mensagens ou responder às urgências do dia, toma dois minutos em silêncio e entrega em oração a tua maior preocupação a Deus.',
     prayer: 'Senhor, que o nosso olhar se erga acima das preocupações deste dia para confiar plenamente no Teu cuidado fiel. Ámen.',
   },
   {
     id: 'dev-2',
-    date: '15 de Novembro',
+    date: 'Devocional 2 · Soberania',
     title: 'Quando tudo coopera para o bem',
     author: 'Diác. Helena Bettencourt',
     reference: { bookId: 'romanos', bookName: 'Romanos', chapter: 8, verse: 28 },
     body: [
-      'Paulo não escreve que todas as circunstâncias são boas em si mesmas. Há perdas, esperas e dias difíceis que nos pesam verdadeiramente.',
-      'A promessa de Romanos 8:28 assegura que nenhuma peça solta da nossa história escapa à mão soberana de Deus. Ele tece propósito mesmo nos fios escuros, moldando-nos à imagem do Seu Filho.',
+      'Paulo não escreve que todas as circunstâncias são boas em si mesmas. Há perdas, esperas prolongadas e dias cinzentos que pesam verdadeiramente sobre o coração.',
+      'A promessa de Romanos 8:28 assegura que nenhuma peça solta da nossa história escapa à mão soberana do Pai. Ele tece propósito eterno mesmo nos fios escuros, moldando-nos à imagem de Cristo.',
     ],
+    application:
+      'Escreve nas tuas notas uma situação difícil que estás a viver e ora agradecendo a Deus por estar presente dentro dela.',
     prayer: 'Pai, dá-nos paciência e confiança para discernir a Tua fidelidade mesmo quando não compreendemos o caminho. Ámen.',
   },
   {
     id: 'dev-3',
-    date: '14 de Novembro',
+    date: 'Devocional 3 · Descanso',
     title: 'Descanso verdadeiro para almas cansadas',
     author: 'Pr. Duarte Medeiros',
     reference: { bookId: 'mateus', bookName: 'Mateus', chapter: 11, verse: 28 },
     body: [
-      'O convite de Jesus não é para quem já resolveu todos os seus problemas, mas para todos os que estão cansados e sobrecarregados.',
-      'Aprender com Ele é trocar o ritmo frenético da auto-suficiência pelo passo manso e humilde de quem caminha ao Seu lado.',
+      'O convite de Jesus não se dirige a quem já resolveu todos os seus problemas, mas a todos os que se sentem cansados e sobrecarregados pelo peso do quotidiano.',
+      'Aprender com Ele significa trocar o ritmo apressado da auto-suficiência pelo passo manso e humilde de quem caminha ao lado do Bom Pastor.',
     ],
+    application:
+      'Faz hoje uma pausa consciente de dez minutos sem ecrãs para ler o texto bíblico devagar e respirar na presença do Senhor.',
     prayer: 'Jesus, recebemos o Teu descanso e entregamos hoje os fardos que não conseguimos carregar sozinhos. Ámen.',
+  },
+  {
+    id: 'dev-4',
+    date: 'Devocional 4 · Paz Interior',
+    title: 'A sentinela que guarda o coração',
+    author: 'Pr. Duarte Medeiros',
+    reference: { bookId: 'filipenses', bookName: 'Filipenses', chapter: 4, verse: 7 },
+    body: [
+      'A ansiedade tenta convencer-nos de que precisamos de controlar tudo o que ainda não aconteceu. Contudo, o apóstolo Paulo mostra-nos o caminho inverso: transformar cada inquietação em oração específica e grata.',
+      'Quando colocamos os nossos pedidos diante de Deus, a Sua paz atua como uma sentinela firme à porta dos pensamentos e das emoções.',
+    ],
+    application:
+      'Substitui hoje uma preocupação recorrente por uma oração concreta em voz alta, terminando com um motivo real de gratidão.',
+    prayer: 'Senhor da paz, guarda a nossa mente e o nosso coração em Cristo Jesus diante de cada notícia e decisão deste dia. Ámen.',
+  },
+  {
+    id: 'dev-5',
+    date: 'Devocional 5 · Permanência',
+    title: 'Permanecer na Videira para dar fruto',
+    author: 'Diác. Helena Bettencourt',
+    reference: { bookId: 'joao', bookName: 'João', chapter: 15, verse: 5 },
+    body: [
+      'Nas encostas vulcânicas das nossas ilhas, os ramos só produzem fruto quando permanecem firmemente ligados à videira que os alimenta através da pedra e da chuva.',
+      'Na vida cristã, o fruto espiritual não nasce do ativismo cansado, mas da comunhão diária e dependente com Jesus Cristo, a nossa Videira Verdadeira.',
+    ],
+    application:
+      'Procura hoje um gesto concreto de serviço ou encorajamento para com alguém da tua família, vizinhança ou igreja.',
+    prayer: 'Cristo, nossa Videira, ensina-nos a permanecer em Ti em cada hora para que a nossa vida reflita o Teu amor. Ámen.',
+  },
+  {
+    id: 'dev-6',
+    date: 'Devocional 6 · Palavra e Direção',
+    title: 'Lâmpada para o próximo passo',
+    author: 'Pr. Duarte Medeiros',
+    reference: { bookId: 'salmos', bookName: 'Salmos', chapter: 119, verse: 105 },
+    body: [
+      'Nos tempos bíblicos, uma pequena candeia de azeite não iluminava toda a estrada até ao fim da viagem, mas dava luz clara para o próximo passo seguro na noite.',
+      'Assim opera a Palavra de Deus na nossa vida: nem sempre responde a todas as dúvidas sobre os próximos anos, mas ilumina fielmente a obediência de hoje.',
+    ],
+    application:
+      'Escolhe um versículo do capítulo de hoje, guarda-o nos teus marcadores e relê-o antes de adormecer.',
+    prayer: 'Pai, abre os nossos olhos à luz das Escrituras para caminharmos hoje na Tua verdade com coragem. Ámen.',
+  },
+  {
+    id: 'dev-7',
+    date: 'Devocional 7 · Amor Redentor',
+    title: 'A medida do amor de Deus',
+    author: 'Diác. Helena Bettencourt',
+    reference: { bookId: 'joao', bookName: 'João', chapter: 3, verse: 16 },
+    body: [
+      'O Evangelho não começa com aquilo que conseguimos oferecer a Deus, mas com aquilo que Deus deu por amor ao mundo inteiro na entrega do Seu Filho.',
+      'Esta boa notícia sustenta a igreja na Horta e em todo o lugar: somos amados, perdoados e enviados para partilhar a mesma graça com a nossa cidade.',
+    ],
+    application:
+      'Partilha hoje este devocional ou um versículo com alguém que precise de ouvir uma palavra de esperança.',
+    prayer: 'Deus de graça, obrigado por nos amares primeiro em Cristo. Faz da nossa casa e igreja testemunhas vivas do Teu Evangelho. Ámen.',
   },
 ];
 
