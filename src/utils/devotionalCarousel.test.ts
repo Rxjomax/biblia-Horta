@@ -44,6 +44,13 @@ test('buildDevotionalCarouselSlides outputs exactly 3 or 4 ordered slides', () =
   assert.equal(fourSlides[2].kind, 'application');
   assert.equal(fourSlides[3].kind, 'prayer');
   assert.ok(fourSlides.every((s) => s.totalPages === 4));
+
+  for (const slide of [...threeSlides, ...fourSlides]) {
+    assert.ok(!slide.eyebrow.includes(dev.author));
+    assert.ok(!slide.headline.includes(dev.author));
+    assert.ok(!slide.body.includes(dev.author));
+    assert.ok(!(slide.subnote ?? '').includes(dev.author));
+  }
 });
 
 test('getDailyDevotionalIndex returns valid bounded index across calendar dates', () => {
@@ -53,10 +60,11 @@ test('getDailyDevotionalIndex returns valid bounded index across calendar dates'
   }
 });
 
-test('buildDevotionalShareCaption includes official URL, reference, and prayer', () => {
+test('buildDevotionalShareCaption includes official URL, reference, and prayer without author', () => {
   const dev = PASTORAL_DEVOTIONALS[0];
   const caption = buildDevotionalShareCaption(dev, 'O Senhor é quem te guarda.');
   assert.ok(caption.includes(formatDevotionalReference(dev)));
   assert.ok(caption.includes(dev.prayer));
   assert.ok(caption.includes('https://biblia-horta.vercel.app/'));
+  assert.ok(!caption.includes(dev.author));
 });

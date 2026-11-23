@@ -101,7 +101,7 @@ export const DailyDevotionalSection: React.FC<DailyDevotionalSectionProps> = ({
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-5">
         <div>
           <p className="text-xs font-medium text-[#8C6218] dark:text-[#D4A84E]">
-            Devocional Diário · {devotional.date} · {devotional.author}
+            Devocional Diário · {devotional.date}
           </p>
           <h2
             id="daily-devotional-heading"

@@ -54,16 +54,15 @@ export function buildDevotionalCarouselSlides(
         eyebrow: 'Devocional Diário · IEB Horta',
         headline: devotional.title,
         body: `«${verseText.trim()}»`,
-        subnote: `${refLabel}  ·  ${devotional.author}`,
+        subnote: refLabel,
       },
       {
         pageNumber: 2,
         totalPages: 3,
         kind: 'reflection',
-        eyebrow: 'Reflexão Pastoral',
+        eyebrow: 'Reflexão',
         headline: refLabel,
         body: reflectionMerged,
-        subnote: devotional.author,
       },
       {
         pageNumber: 3,
@@ -85,7 +84,7 @@ export function buildDevotionalCarouselSlides(
       eyebrow: 'Devocional Diário · IEB Horta',
       headline: devotional.title,
       body: `«${verseText.trim()}»`,
-      subnote: `${refLabel}  ·  ${devotional.author}`,
+      subnote: refLabel,
     },
     {
       pageNumber: 2,
@@ -94,7 +93,6 @@ export function buildDevotionalCarouselSlides(
       eyebrow: 'Meditação na Palavra',
       headline: refLabel,
       body: [firstParagraph, remainingParagraphs].filter(Boolean).join('\n\n'),
-      subnote: devotional.author,
     },
     {
       pageNumber: 3,
@@ -135,7 +133,7 @@ export function buildDevotionalShareCaption(
     ``,
     `Oração: ${devotional.prayer}`,
     ``,
-    `${devotional.author} · Igreja Evangélica Baptista da Horta (@iebhorta)`,
+    `Igreja Evangélica Baptista da Horta (@iebhorta)`,
     `Leia na íntegra em https://biblia-horta.vercel.app/`,
   ].join('\n');
 }
