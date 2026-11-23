@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   BookOpen,
@@ -15,7 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { getVerseFromCorpusOrFallback } from '../services/bibleLoader';
-import { CHURCH_INFO, DAILY_VERSE_REF, READING_PLANS } from '../data/churchData';
+import { CHURCH_INFO, READING_PLANS } from '../data/churchData';
 import { useSpeechReader } from '../hooks/useSpeechReader';
 import type {
   BibleCorpus,
@@ -31,6 +31,11 @@ import {
   parseBibleReference,
   type DetectedBibleRef,
 } from '../utils/bible';
+import {
+  formatDailyVerseReference,
+  getDailyVerseForDate,
+  resolveDailyVerseText,
+} from '../utils/dailyVerse';
 import type { DevotionalCarouselPageCount } from '../utils/devotionalCarousel';
 import { DailyDevotionalSection } from './DailyDevotionalSection';
 
@@ -88,15 +93,30 @@ export const HomeView: React.FC<HomeViewProps> = ({
   prayedIds,
   onTogglePraying,
 }) => {
+  const [calendarDayKey, setCalendarDayKey] = useState<string>(() => new Date().toDateString());
+
+  useEffect(() => {
+    const syncDay = () => {
+      const nextKey = new Date().toDateString();
+      setCalendarDayKey((prev) => (prev === nextKey ? prev : nextKey));
+    };
+    const interval = window.setInterval(syncDay, 60_000);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') syncDay();
+    };
+    window.addEventListener('focus', syncDay);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', syncDay);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
   const greeting = getTimeGreeting();
-  const dailyVerseText =
-    getVerseFromCorpusOrFallback(
-      bibleVersion,
-      DAILY_VERSE_REF.bookId,
-      DAILY_VERSE_REF.chapter,
-      DAILY_VERSE_REF.verse
-    ) || 'Levanto os meus olhos para os montes e pergunto: De onde me vem o socorro?';
-  const dailyVerseRefLabel = `${DAILY_VERSE_REF.bookName} ${DAILY_VERSE_REF.chapter}:${DAILY_VERSE_REF.verse}`;
+  const dailyVerse = useMemo(() => getDailyVerseForDate(new Date()), [calendarDayKey]);
+  const dailyVerseText = resolveDailyVerseText(dailyVerse, bibleVersion, primaryCorpus);
+  const dailyVerseRefLabel = formatDailyVerseReference(dailyVerse);
 
   const {
     isPlaying: isSpeaking,
@@ -254,9 +274,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 type="button"
                 onClick={() =>
                   onOpenBibleChapter(
-                    DAILY_VERSE_REF.bookId,
-                    DAILY_VERSE_REF.chapter,
-                    DAILY_VERSE_REF.verse
+                    dailyVerse.bookId,
+                    dailyVerse.chapter,
+                    dailyVerse.verse
                   )
                 }
                 className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#D4A84E] text-[#0C1320] text-sm font-semibold hover:bg-[#E0B965] transition-colors inline-flex items-center gap-2 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"

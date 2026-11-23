@@ -7,6 +7,7 @@ import type {
   SermonNote,
   VerseReference,
 } from '../types';
+import { getDailyVerseForDate } from '../utils/dailyVerse';
 export { READING_PLANS } from './readingPlans';
 
 export const OFFICIAL_APP_URL = 'https://biblia-horta.vercel.app/';
@@ -64,12 +65,8 @@ export const CHURCH_INFO = {
   },
 };
 
-export const DAILY_VERSE_REF: VerseReference & { verse: number } = {
-  bookId: 'salmos',
-  bookName: 'Salmos',
-  chapter: 121,
-  verse: 1,
-};
+export const DAILY_VERSE_REF: VerseReference & { verse: number; fallbackText?: string } =
+  getDailyVerseForDate();
 
 export const DAILY_VERSE_SECOND_REF: VerseReference & { verse: number } = {
   bookId: 'filipenses',

@@ -6,7 +6,7 @@ import type {
   ReadingPlan,
   ReadingPlanDay,
 } from '../types';
-import { getVerseFromCorpusOrFallback } from '../services/bibleLoader';
+import { resolveDailyVerseText } from './dailyVerse';
 
 export type ReminderKind = 'daily-verse' | 'reading-plan' | 'church-service';
 
@@ -223,7 +223,13 @@ export function buildReminderPayload(params: {
   kind: ReminderKind;
   bibleVersion: BibleVersionId;
   primaryCorpus?: BibleCorpus;
-  dailyVerseRef: { bookId: string; bookName: string; chapter: number; verse: number };
+  dailyVerseRef: {
+    bookId: string;
+    bookName: string;
+    chapter: number;
+    verse: number;
+    fallbackText?: string;
+  };
   activePlan?: ReadingPlan;
   nextDay?: ReadingPlanDay;
   serviceEvent?: ChurchEvent;
@@ -232,6 +238,7 @@ export function buildReminderPayload(params: {
   const {
     kind,
     bibleVersion,
+    primaryCorpus,
     dailyVerseRef,
     activePlan,
     nextDay,
@@ -240,13 +247,16 @@ export function buildReminderPayload(params: {
   } = params;
 
   if (kind === 'daily-verse') {
-    const verseText =
-      getVerseFromCorpusOrFallback(
-        bibleVersion,
-        dailyVerseRef.bookId,
-        dailyVerseRef.chapter,
-        dailyVerseRef.verse
-      ) || 'Levanto os meus olhos para os montes e pergunto: De onde me vem o socorro?';
+    const verseText = resolveDailyVerseText(
+      {
+        ...dailyVerseRef,
+        fallbackText:
+          dailyVerseRef.fallbackText ||
+          'A tua palavra é lâmpada que ilumina os meus passos e luz que clareia o meu caminho.',
+      },
+      bibleVersion,
+      primaryCorpus
+    );
 
     return {
       id: `rem-daily-${Date.now()}`,
@@ -305,7 +315,13 @@ export function evaluateDueReminders(params: {
   now: Date;
   bibleVersion: BibleVersionId;
   primaryCorpus?: BibleCorpus;
-  dailyVerseRef: { bookId: string; bookName: string; chapter: number; verse: number };
+  dailyVerseRef: {
+    bookId: string;
+    bookName: string;
+    chapter: number;
+    verse: number;
+    fallbackText?: string;
+  };
   activePlan?: ReadingPlan;
   nextDay?: ReadingPlanDay;
   events: ChurchEvent[];

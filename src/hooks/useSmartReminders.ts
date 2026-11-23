@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CHURCH_EVENTS, DAILY_VERSE_REF } from '../data/churchData';
+import { CHURCH_EVENTS } from '../data/churchData';
 import type {
   BibleCorpus,
   BibleVersionId,
@@ -7,6 +7,7 @@ import type {
   ReadingPlan,
   ReadingPlanDay,
 } from '../types';
+import { getDailyVerseForDate } from '../utils/dailyVerse';
 import {
   buildReminderPayload,
   evaluateDueReminders,
@@ -182,13 +183,14 @@ export function useSmartReminders({
   const checkDueReminders = useCallback(async () => {
     const firedMap = readFiredMap();
     const ctx = contextRef.current;
+    const now = new Date();
     const { dueReminders, updatedFiredMap } = evaluateDueReminders({
       settings: settingsRef.current,
       firedMap,
-      now: new Date(),
+      now,
       bibleVersion: ctx.bibleVersion,
       primaryCorpus: ctx.primaryCorpus,
-      dailyVerseRef: DAILY_VERSE_REF,
+      dailyVerseRef: getDailyVerseForDate(now),
       activePlan: ctx.activePlan,
       nextDay: ctx.nextDay,
       events: CHURCH_EVENTS,
@@ -257,12 +259,13 @@ export function useSmartReminders({
       }
 
       const ctx = contextRef.current;
-      const nextService = getNextChurchServiceReminder(CHURCH_EVENTS, new Date());
+      const now = new Date();
+      const nextService = getNextChurchServiceReminder(CHURCH_EVENTS, now);
       const payload = buildReminderPayload({
         kind,
         bibleVersion: ctx.bibleVersion,
         primaryCorpus: ctx.primaryCorpus,
-        dailyVerseRef: DAILY_VERSE_REF,
+        dailyVerseRef: getDailyVerseForDate(now),
         activePlan: ctx.activePlan,
         nextDay: ctx.nextDay,
         serviceEvent: nextService?.event,
