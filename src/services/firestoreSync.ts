@@ -661,7 +661,10 @@ export function subscribePublicChurchData(
         if (callbacks.onError) {
           callbacks.onError(prayerPath, err);
         }
-        handleFirestoreError(err, OperationType.LIST, prayerPath);
+        const code = (err as { code?: string })?.code;
+        if (!callbacks.onError || code === 'permission-denied') {
+          handleFirestoreError(err, OperationType.LIST, prayerPath);
+        }
       }
     )
   );
@@ -700,7 +703,10 @@ export function subscribePublicChurchData(
         if (callbacks.onError) {
           callbacks.onError(commentsPath, err);
         }
-        handleFirestoreError(err, OperationType.LIST, commentsPath);
+        const code = (err as { code?: string })?.code;
+        if (!callbacks.onError || code === 'permission-denied') {
+          handleFirestoreError(err, OperationType.LIST, commentsPath);
+        }
       }
     )
   );

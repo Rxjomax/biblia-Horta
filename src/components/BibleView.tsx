@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  BookOpenText,
   Bookmark,
   ChevronLeft,
   ChevronRight,
   Columns2,
+  Copy,
   Image as ImageIcon,
   Loader2,
   Pause,
@@ -35,6 +37,13 @@ import type {
   VerseNote,
 } from '../types';
 import { makeVerseKey, normalizeText, searchLoadedBible } from '../utils/bible';
+import {
+  type BibleStudyTarget,
+  buildFullChapterContextText,
+  buildSurroundingContextText,
+  normalizeTextSelectionExcerpt,
+} from '../utils/bibleStudy';
+import { BibleStudyAI } from './BibleStudyAI';
 
 interface BibleViewProps {
   bookId: string;
@@ -147,6 +156,16 @@ export const BibleView: React.FC<BibleViewProps> = ({
   );
   const [isLoadingAllVersions, setIsLoadingAllVersions] = useState(false);
 
+  // Floating context menu when user highlights text in a verse + BibleStudyAI target
+  const chapterContainerRef = useRef<HTMLDivElement | null>(null);
+  const [selectionMenu, setSelectionMenu] = useState<{
+    verseNum: number;
+    excerpt: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [studyTarget, setStudyTarget] = useState<BibleStudyTarget | null>(null);
+
   const {
     isPlaying,
     isLoadingAudio,
@@ -223,6 +242,158 @@ export const BibleView: React.FC<BibleViewProps> = ({
     }
     return null;
   }, [currentBook, safeChapter]);
+
+  const openBibleStudy = useCallback(
+    (verseNum: number, selectedExcerpt?: string) => {
+      const text = primaryVerses[verseNum - 1] ?? '';
+      if (!text) return;
+      setStudyTarget({
+        scope: 'verse',
+        bookId: currentBook.id,
+        bookName: currentBook.name,
+        testament: currentBook.testament,
+        totalChapters: currentBook.totalChapters,
+        chapter: safeChapter,
+        verse: verseNum,
+        version: primaryVersion,
+        verseText: text,
+        selectedExcerpt: selectedExcerpt?.trim() ? selectedExcerpt.trim() : undefined,
+        surroundingContext: buildSurroundingContextText(primaryVerses, verseNum, 2),
+      });
+    },
+    [
+      primaryVerses,
+      currentBook.id,
+      currentBook.name,
+      currentBook.testament,
+      currentBook.totalChapters,
+      safeChapter,
+      primaryVersion,
+    ]
+  );
+
+  const openChapterStudy = useCallback(() => {
+    setSelectionMenu(null);
+    window.getSelection()?.removeAllRanges();
+    setStudyTarget({
+      scope: 'chapter',
+      bookId: currentBook.id,
+      bookName: currentBook.name,
+      testament: currentBook.testament,
+      totalChapters: currentBook.totalChapters,
+      chapter: safeChapter,
+      verse: 1,
+      verseCount: primaryVerses.length,
+      version: primaryVersion,
+      chapterText: buildFullChapterContextText(primaryVerses),
+    });
+  }, [
+    currentBook.id,
+    currentBook.name,
+    currentBook.testament,
+    currentBook.totalChapters,
+    safeChapter,
+    primaryVerses,
+    primaryVersion,
+  ]);
+
+  const openBookStudy = useCallback(
+    (bookMeta = currentBook) => {
+      setSelectionMenu(null);
+      window.getSelection()?.removeAllRanges();
+      setStudyTarget({
+        scope: 'book',
+        bookId: bookMeta.id,
+        bookName: bookMeta.name,
+        testament: bookMeta.testament,
+        totalChapters: bookMeta.totalChapters,
+        chapter: bookMeta.id === currentBook.id ? safeChapter : 1,
+        verse: 1,
+        version: primaryVersion,
+      });
+    },
+    [currentBook, safeChapter, primaryVersion]
+  );
+
+  // Detect highlighted text selection inside any verse in the chapter container
+  const updateSelectionContextMenu = useCallback(() => {
+    const container = chapterContainerRef.current;
+    const sel = window.getSelection();
+    if (!container || !sel || sel.isCollapsed || sel.rangeCount === 0) {
+      setSelectionMenu(null);
+      return;
+    }
+
+    const excerpt = normalizeTextSelectionExcerpt(sel.toString());
+    if (excerpt.length < 2) {
+      setSelectionMenu(null);
+      return;
+    }
+
+    const range = sel.getRangeAt(0);
+    const anchorEl =
+      range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+        ? (range.commonAncestorContainer as HTMLElement)
+        : range.commonAncestorContainer.parentElement;
+
+    if (!anchorEl || !container.contains(anchorEl)) {
+      setSelectionMenu(null);
+      return;
+    }
+
+    const verseEl = anchorEl.closest<HTMLElement>('[data-verse-num]');
+    const startVerseEl =
+      (range.startContainer.nodeType === Node.ELEMENT_NODE
+        ? (range.startContainer as HTMLElement)
+        : range.startContainer.parentElement
+      )?.closest<HTMLElement>('[data-verse-num]') ?? verseEl;
+
+    const verseNum = Number(startVerseEl?.dataset.verseNum ?? 0);
+    if (!verseNum) {
+      setSelectionMenu(null);
+      return;
+    }
+
+    const rect = range.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      setSelectionMenu(null);
+      return;
+    }
+
+    const clampedX = Math.min(Math.max(rect.left + rect.width / 2, 160), window.innerWidth - 160);
+    const preferTop = rect.top > 96;
+    const y = preferTop ? rect.top - 10 : rect.bottom + 10;
+
+    setSelectionMenu({
+      verseNum,
+      excerpt,
+      x: clampedX,
+      y,
+    });
+  }, []);
+
+  useEffect(() => {
+    const onSelectionChange = () => {
+      updateSelectionContextMenu();
+    };
+    const onScrollOrResize = () => {
+      setSelectionMenu(null);
+    };
+    document.addEventListener('selectionchange', onSelectionChange);
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      document.removeEventListener('selectionchange', onSelectionChange);
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [updateSelectionContextMenu]);
+
+  // Clear floating selection bar when changing chapter or book
+  useEffect(() => {
+    setSelectionMenu(null);
+    window.getSelection()?.removeAllRanges();
+  }, [currentBook.id, safeChapter, primaryVersion]);
 
   const handleOpenVerseTools = (verseNum: number) => {
     setSelectedVerseNum(verseNum);
@@ -652,16 +823,37 @@ export const BibleView: React.FC<BibleViewProps> = ({
       {/* Chapter Heading & Reading Surface */}
       <article className={parallelMode ? 'max-w-none' : 'max-w-[66ch] mx-auto'}>
         <header className="pb-5 border-b border-[#141E2E]/10 dark:border-white/10">
-          <p className="text-xs font-medium text-[#8C6218] dark:text-[#D4A84E]">
-            {BIBLE_VERSIONS.find((v) => v.id === primaryVersion)?.name} ·{' '}
-            {currentBook.testament === 'AT' ? 'Antigo Testamento' : 'Novo Testamento'}
-          </p>
-          <h1 className="font-display text-3xl sm:text-4xl font-semibold text-[#141E2E] dark:text-[#F2EFE9] mt-1">
-            {currentBook.name} {safeChapter}
-          </h1>
-          <p className="text-xs text-[#556173] dark:text-[#A3B0C2] mt-1.5 tabular-nums">
-            Capítulo {safeChapter} de {currentBook.totalChapters} · {primaryVerses.length} versículos
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-[#8C6218] dark:text-[#D4A84E]">
+                {BIBLE_VERSIONS.find((v) => v.id === primaryVersion)?.name} ·{' '}
+                {currentBook.testament === 'AT' ? 'Antigo Testamento' : 'Novo Testamento'}
+              </p>
+              <h1 className="font-display text-3xl sm:text-4xl font-semibold text-[#141E2E] dark:text-[#F2EFE9] mt-1">
+                {currentBook.name} {safeChapter}
+              </h1>
+              <p className="text-xs text-[#556173] dark:text-[#A3B0C2] mt-1.5 tabular-nums">
+                Capítulo {safeChapter} de {currentBook.totalChapters} · {primaryVerses.length} versículos
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={openChapterStudy}
+                className="min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] hover:opacity-95 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-opacity shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+              >
+                <BookOpenText className="w-4 h-4" aria-hidden="true" />
+                <span>Estudar Cap. {safeChapter}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openBookStudy(currentBook)}
+                className="min-h-[44px] px-3.5 py-2 rounded-xl border border-[#8C6218]/35 dark:border-[#D4A84E]/40 bg-[#F4F0E8] dark:bg-[#131E30] text-[#13294B] dark:text-[#E5BE6D] hover:bg-[#EAE4D9] dark:hover:bg-[#1B2B44] text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+              >
+                <span>Estudar Livro</span>
+              </button>
+            </div>
+          </div>
 
           {/* Neighboring Books Bar: shows multiple books side by side for effortless switching */}
           <nav
@@ -709,6 +901,11 @@ export const BibleView: React.FC<BibleViewProps> = ({
           </div>
         ) : (
           <div
+            ref={chapterContainerRef}
+            onMouseUp={updateSelectionContextMenu}
+            onTouchEnd={() => {
+              window.setTimeout(updateSelectionContextMenu, 40);
+            }}
             className={`mt-6 space-y-4 ${
               readerSettings.fontFamily === 'serif' ? 'font-bible-serif' : 'font-bible-sans'
             }`}
@@ -746,26 +943,41 @@ export const BibleView: React.FC<BibleViewProps> = ({
               return (
                 <div
                   key={verseNum}
-                  className={`rounded-xl transition-colors ${
+                  data-verse-num={verseNum}
+                  onClick={() => {
+                    const selected = window.getSelection()?.toString().trim();
+                    if (selected && selected.length >= 2) {
+                      updateSelectionContextMenu();
+                      return;
+                    }
+                    handleOpenVerseTools(verseNum);
+                  }}
+                  className={`rounded-xl transition-colors cursor-pointer ${
                     isActiveAudio
                       ? 'ring-2 ring-[#D4A84E] bg-[#D4A84E]/15 p-2 -mx-2'
                       : isSelected || isTargetJump
                       ? 'bg-[#EFE9DD]/70 dark:bg-[#17253B] p-2 -mx-2'
-                      : ''
+                      : 'hover:bg-[#EFE9DD]/40 dark:hover:bg-[#17253B]/45'
                   }`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => handleOpenVerseTools(verseNum)}
-                    className={`w-full text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D] ${
+                  <div
+                    className={`w-full text-left rounded-lg ${
                       parallelMode ? 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8' : 'block'
                     }`}
                   >
                     <div className="flex items-start gap-2">
-                      <sup className="font-mono-tabular text-xs font-semibold text-[#8C6218] dark:text-[#D4A84E] mt-2 shrink-0 select-none">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenVerseTools(verseNum);
+                        }}
+                        aria-label={`Abrir ferramentas de estudo do versículo ${verseNum}`}
+                        className="font-mono-tabular text-xs font-semibold text-[#8C6218] dark:text-[#D4A84E] mt-2 shrink-0 select-none hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D] rounded px-0.5"
+                      >
                         {verseNum}
-                      </sup>
-                      <span className={`rounded px-0.5 ${highlightClass}`}>
+                      </button>
+                      <span className={`rounded px-0.5 select-text ${highlightClass}`}>
                         {text || '— (versículo combinado no anterior)'}
                       </span>
                     </div>
@@ -775,14 +987,14 @@ export const BibleView: React.FC<BibleViewProps> = ({
                         <sup className="font-mono-tabular text-xs font-semibold text-[#556173] dark:text-[#96A3B8] mt-2 shrink-0 select-none">
                           {verseNum}
                         </sup>
-                        <span>
+                        <span className="select-text">
                           {isLoadingSecondary
                             ? 'A carregar...'
                             : secText || '— (versículo combinado no anterior)'}
                         </span>
                       </div>
                     )}
-                  </button>
+                  </div>
 
                   {(hasNote || hasBookmark) && (
                     <div className="mt-1.5 ml-5 flex items-center gap-3 text-xs text-[#556173] dark:text-[#A3B0C2] font-sans">
@@ -1007,6 +1219,17 @@ export const BibleView: React.FC<BibleViewProps> = ({
                     ← Outros livros
                   </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBookModal(false);
+                    openBookStudy(activeModalBook);
+                  }}
+                  className="w-full min-h-[44px] mb-3 px-3.5 py-2 rounded-xl border border-[#8C6218]/35 dark:border-[#D4A84E]/40 bg-[#F4F0E8] dark:bg-[#0C1320] text-[#13294B] dark:text-[#E5BE6D] hover:bg-[#EAE4D9] dark:hover:bg-[#1B2B44] text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+                >
+                  <BookOpenText className="w-4 h-4 text-[#8C6218] dark:text-[#D4A84E]" aria-hidden="true" />
+                  <span>Estudar o livro inteiro de {activeModalBook.name}</span>
+                </button>
                 <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-5 gap-2 md:max-h-[54vh] overflow-y-auto pr-1">
                   {Array.from({ length: activeModalBook.totalChapters }, (_, i) => i + 1).map(
                     (chNum) => {
@@ -1041,7 +1264,7 @@ export const BibleView: React.FC<BibleViewProps> = ({
       {/* Verse Study Tools Drawer / Modal */}
       {selectedVerseNum !== null && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#0C1320]/60 p-0 sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="verse-tools-title"
@@ -1176,8 +1399,21 @@ export const BibleView: React.FC<BibleViewProps> = ({
               </div>
             </div>
 
-            {/* Compare All 7 Versions, Listen PT-PT & Share */}
+            {/* Compare All 7 Versions, Listen PT-PT, Share & Study with AI */}
             <div className="pt-3 border-t border-[#141E2E]/10 dark:border-white/10 flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const v = selectedVerseNum;
+                  setSelectedVerseNum(null);
+                  openBibleStudy(v);
+                }}
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-[#13294B] text-[#FAF8F4] dark:bg-[#D4A84E] dark:text-[#0C1320] text-xs font-semibold inline-flex items-center gap-2 hover:opacity-95 transition-opacity"
+              >
+                <BookOpenText className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>Estudar este texto</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -1261,6 +1497,90 @@ export const BibleView: React.FC<BibleViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Floating Context Menu when user highlights a text excerpt in the Bible */}
+      {selectionMenu && (
+        <div
+          role="toolbar"
+          aria-label="Menu de contexto do texto selecionado"
+          style={{
+            left: `${selectionMenu.x}px`,
+            top: `${selectionMenu.y}px`,
+            transform: selectionMenu.y > 100 ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
+          }}
+          className="fixed z-[90] flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-[#13294B] dark:bg-[#1B2B44] text-[#FAF8F4] border border-[#D4A84E]/40 shadow-2xl max-w-[92vw]"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              const { verseNum, excerpt } = selectionMenu;
+              setSelectionMenu(null);
+              window.getSelection()?.removeAllRanges();
+              openBibleStudy(verseNum, excerpt);
+            }}
+            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-[#D4A84E] text-[#0C1320] text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap hover:bg-[#E0B965] transition-colors"
+          >
+            <BookOpenText className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>Estudar este texto</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const key = makeVerseKey(currentBook.id, safeChapter, selectionMenu.verseNum);
+              onSetHighlight(key, 'amber');
+              setSelectionMenu(null);
+              window.getSelection()?.removeAllRanges();
+            }}
+            aria-label="Sublinhar versículo a dourado"
+            className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap transition-colors"
+          >
+            <span className="w-3 h-3 rounded-full bg-[#EAB308]" aria-hidden="true" />
+            <span>Sublinhar</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(
+                  `«${selectionMenu.excerpt}» (${currentBook.name} ${safeChapter}:${selectionMenu.verseNum} ${primaryVersion})`
+                );
+              } catch {
+                // Clipboard unavailable
+              }
+              setSelectionMenu(null);
+              window.getSelection()?.removeAllRanges();
+            }}
+            aria-label="Copiar texto selecionado"
+            className="min-h-[40px] min-w-[40px] px-2 rounded-xl bg-white/10 hover:bg-white/20 inline-flex items-center justify-center transition-colors"
+          >
+            <Copy className="w-4 h-4" aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectionMenu(null);
+              window.getSelection()?.removeAllRanges();
+            }}
+            aria-label="Fechar menu de seleção"
+            className="min-h-[40px] min-w-[40px] px-2 rounded-xl hover:bg-white/15 inline-flex items-center justify-center transition-colors"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
+      {/* Theological & Historical Study AI Modal */}
+      <BibleStudyAI
+        isOpen={Boolean(studyTarget)}
+        onClose={() => setStudyTarget(null)}
+        target={studyTarget}
+        onSwitchToChapterStudy={openChapterStudy}
+        onSwitchToBookStudy={() => openBookStudy(currentBook)}
+        onSaveStudyToNote={onSaveVerseNote}
+      />
     </div>
   );
 };
