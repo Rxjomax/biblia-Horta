@@ -50,7 +50,13 @@ import type {
   VerseNote,
   VisitorSubmission,
 } from './types';
-import { makeVerseKey, updateStreakOnRead } from './utils/bible';
+import {
+  getEffectiveStreak,
+  getLocalDateIso,
+  hasReadToday,
+  makeVerseKey,
+  updateStreakOnRead,
+} from './utils/bible';
 import type { DevotionalCarouselPageCount } from './utils/devotionalCarousel';
 import { loadPersistedState, savePersistedKey } from './utils/storage';
 
@@ -90,9 +96,14 @@ export default function App() {
   const [planProgress, setPlanProgress] = useState<Record<string, number[]>>(initial.planProgress);
   const [streak, setStreak] = useState<number>(initial.streak);
   const [lastReadDate, setLastReadDate] = useState<string | null>(initial.lastReadDate);
+  const [todayIso, setTodayIso] = useState<string>(() => getLocalDateIso());
   const [challengeComments, setChallengeComments] = useState<CommunityChallengeComment[]>(
     initial.challengeComments
   );
+
+  const effectiveStreak = getEffectiveStreak(streak, lastReadDate, todayIso);
+  const effectiveLastReadDate = effectiveStreak > 0 ? lastReadDate : null;
+  const readToday = hasReadToday(lastReadDate, todayIso);
 
   // Community state
   const [prayerRequests, setPrayerRequests] = useState<PrayerRequest[]>(initial.prayerRequests);
@@ -157,6 +168,24 @@ export default function App() {
     activePlan: activePlanObj,
     nextDay: nextPlanDayObj,
   });
+
+  useEffect(() => {
+    const syncToday = () => {
+      const nextIso = getLocalDateIso();
+      setTodayIso((prev) => (prev === nextIso ? prev : nextIso));
+    };
+    const interval = window.setInterval(syncToday, 60_000);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') syncToday();
+    };
+    window.addEventListener('focus', syncToday);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', syncToday);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -245,8 +274,8 @@ export default function App() {
           bibleVersion,
           secondaryVersion,
           activePlanId,
-          streak,
-          lastReadDate,
+          streak: effectiveStreak,
+          lastReadDate: effectiveLastReadDate,
         });
 
         unsubFirestore = subscribeUserWorkspaceData(user, {
@@ -267,13 +296,21 @@ export default function App() {
               setActivePlanId(data.activePlanId);
               savePersistedKey('activePlanId', data.activePlanId);
             }
-            if (typeof data.streak === 'number') {
-              setStreak(data.streak);
-              savePersistedKey('streak', data.streak);
-            }
-            if (data.lastReadDate !== undefined) {
-              setLastReadDate(data.lastReadDate);
-              savePersistedKey('lastReadDate', data.lastReadDate);
+            if (typeof data.streak === 'number' || data.lastReadDate !== undefined) {
+              const incomingDate =
+                data.lastReadDate !== undefined ? data.lastReadDate : lastReadDate;
+              const incomingStreak =
+                typeof data.streak === 'number' ? data.streak : streak;
+              const normalized = getEffectiveStreak(
+                incomingStreak,
+                incomingDate,
+                getLocalDateIso()
+              );
+              const normalizedDate = normalized > 0 ? incomingDate : null;
+              setStreak(normalized);
+              setLastReadDate(normalizedDate);
+              savePersistedKey('streak', normalized);
+              savePersistedKey('lastReadDate', normalizedDate);
             }
           },
           onSermonNotes: (notes) => {
@@ -373,8 +410,8 @@ export default function App() {
         bibleVersion,
         secondaryVersion,
         activePlanId,
-        streak,
-        lastReadDate,
+        streak: effectiveStreak,
+        lastReadDate: effectiveLastReadDate,
       });
       await syncWorkspacePreferencesToCloud(
         targetUser.uid,
@@ -384,8 +421,8 @@ export default function App() {
           bibleVersion,
           secondaryVersion,
           activePlanId,
-          streak,
-          lastReadDate,
+          streak: effectiveStreak,
+          lastReadDate: effectiveLastReadDate,
         }
       );
       for (const note of sermonNotes) {
@@ -484,11 +521,39 @@ export default function App() {
           bibleVersion,
           secondaryVersion,
           activePlanId,
-          streak,
-          lastReadDate,
+          streak: effectiveStreak,
+          lastReadDate: effectiveLastReadDate,
         }
       );
     }
+  };
+
+  const recordDailyReading = () => {
+    const currentTodayIso = getLocalDateIso();
+    setTodayIso(currentTodayIso);
+    if (hasReadToday(lastReadDate, currentTodayIso)) {
+      return { streak: effectiveStreak, lastReadDate: currentTodayIso, changed: false };
+    }
+    const updated = updateStreakOnRead(effectiveStreak, lastReadDate, currentTodayIso);
+    setStreak(updated.streak);
+    setLastReadDate(updated.lastReadDate);
+    savePersistedKey('streak', updated.streak);
+    savePersistedKey('lastReadDate', updated.lastReadDate);
+    if (cloudUser) {
+      void syncWorkspacePreferencesToCloud(
+        cloudUser.uid,
+        cloudUser.displayName || cloudUser.email || 'Membro IEB Horta',
+        {
+          theme,
+          bibleVersion,
+          secondaryVersion,
+          activePlanId,
+          streak: updated.streak,
+          lastReadDate: updated.lastReadDate,
+        }
+      );
+    }
+    return { ...updated, changed: true };
   };
 
   const handleOpenBibleChapter = (bookId: string, chapter: number, verse?: number) => {
@@ -496,6 +561,7 @@ export default function App() {
     setBibleChapter(chapter);
     setHighlightedVerse(verse);
     setActiveTab('biblia');
+    recordDailyReading();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -511,8 +577,8 @@ export default function App() {
           bibleVersion: ver,
           secondaryVersion,
           activePlanId,
-          streak,
-          lastReadDate,
+          streak: effectiveStreak,
+          lastReadDate: effectiveLastReadDate,
         }
       );
     }
@@ -530,8 +596,8 @@ export default function App() {
           bibleVersion,
           secondaryVersion: ver,
           activePlanId,
-          streak,
-          lastReadDate,
+          streak: effectiveStreak,
+          lastReadDate: effectiveLastReadDate,
         }
       );
     }
@@ -658,38 +724,37 @@ export default function App() {
           bibleVersion,
           secondaryVersion,
           activePlanId: planId,
-          streak,
-          lastReadDate,
+          streak: effectiveStreak,
+          lastReadDate: effectiveLastReadDate,
         }
       );
     }
   };
 
   const handleToggleDayComplete = (planId: string, day: number) => {
+    const currentDays = planProgress[planId] ?? [];
+    const exists = currentDays.includes(day);
+    const nextDays = exists
+      ? currentDays.filter((d) => d !== day)
+      : [...currentDays, day].sort((a, b) => a - b);
+
     setPlanProgress((prev) => {
-      const currentDays = prev[planId] ?? [];
-      const exists = currentDays.includes(day);
-      const nextDays = exists
-        ? currentDays.filter((d) => d !== day)
-        : [...currentDays, day].sort((a, b) => a - b);
       const next = { ...prev, [planId]: nextDays };
       savePersistedKey('planProgress', next);
+      return next;
+    });
 
-      let nextStreakVal = streak;
-      let nextLastReadVal = lastReadDate;
-      if (!exists) {
-        const todayIso = new Date().toISOString().slice(0, 10);
-        const updated = updateStreakOnRead(streak, lastReadDate, todayIso);
-        nextStreakVal = updated.streak;
-        nextLastReadVal = updated.lastReadDate;
-        setStreak(updated.streak);
-        setLastReadDate(updated.lastReadDate);
-        savePersistedKey('streak', updated.streak);
-        savePersistedKey('lastReadDate', updated.lastReadDate);
-      }
+    let nextStreakVal = effectiveStreak;
+    let nextLastReadVal = effectiveStreak > 0 ? lastReadDate : null;
+    if (!exists) {
+      const updated = recordDailyReading();
+      nextStreakVal = updated.streak;
+      nextLastReadVal = updated.lastReadDate;
+    }
 
-      if (cloudUser) {
-        void syncPlanProgressToCloud(cloudUser.uid, planId, nextDays);
+    if (cloudUser) {
+      void syncPlanProgressToCloud(cloudUser.uid, planId, nextDays);
+      if (exists) {
         void syncWorkspacePreferencesToCloud(
           cloudUser.uid,
           cloudUser.displayName || cloudUser.email || 'Membro IEB Horta',
@@ -703,8 +768,7 @@ export default function App() {
           }
         );
       }
-      return next;
-    });
+    }
   };
 
   const handleAddChallengeComment = async (
@@ -740,8 +804,8 @@ export default function App() {
         bibleVersion,
         secondaryVersion,
         activePlanId,
-        streak,
-        lastReadDate,
+        streak: effectiveStreak,
+        lastReadDate: effectiveLastReadDate,
       });
       await createChallengeCommentInCloud(activeUser.uid, newComment);
       setChallengeComments((prev) => {
@@ -796,8 +860,8 @@ export default function App() {
         bibleVersion,
         secondaryVersion,
         activePlanId,
-        streak,
-        lastReadDate,
+        streak: effectiveStreak,
+        lastReadDate: effectiveLastReadDate,
       });
       await createPrayerRequestInCloud(activeUser.uid, item);
 
@@ -939,11 +1003,14 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={(tab) => {
           setActiveTab(tab);
+          if (tab === 'biblia') {
+            recordDailyReading();
+          }
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        streak={streak}
+        streak={effectiveStreak}
         bibleVersion={bibleVersion}
         onOpenSocialQR={() => setIsSocialQROpen(true)}
       />
@@ -954,7 +1021,8 @@ export default function App() {
             <HomeView
               bibleVersion={bibleVersion}
               primaryCorpus={primaryCorpus}
-              streak={streak}
+              streak={effectiveStreak}
+              readToday={readToday}
               activePlanId={activePlanId}
               planProgress={planProgress}
               onToggleDayComplete={handleToggleDayComplete}
@@ -995,6 +1063,7 @@ export default function App() {
                 setBibleBookId(bId);
                 setBibleChapter(ch);
                 setHighlightedVerse(v);
+                recordDailyReading();
               }}
               primaryVersion={bibleVersion}
               primaryCorpus={primaryCorpus}
@@ -1020,7 +1089,8 @@ export default function App() {
               onSelectActivePlan={handleSelectActivePlan}
               planProgress={planProgress}
               onToggleDayComplete={handleToggleDayComplete}
-              streak={streak}
+              streak={effectiveStreak}
+              readToday={readToday}
               challengeComments={challengeComments}
               onAddChallengeComment={handleAddChallengeComment}
               onOpenBibleChapter={(bId, ch) => handleOpenBibleChapter(bId, ch)}

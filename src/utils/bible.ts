@@ -241,22 +241,70 @@ export function getTimeGreeting(date: Date = new Date()): string {
   return 'Boa noite';
 }
 
+export function getLocalDateIso(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function calendarDaysBetweenIso(fromIso: string, toIso: string): number | null {
+  const matchFrom = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fromIso.trim());
+  const matchTo = /^(\d{4})-(\d{2})-(\d{2})$/.exec(toIso.trim());
+  if (!matchFrom || !matchTo) return null;
+
+  const fromUtc = Date.UTC(
+    Number(matchFrom[1]),
+    Number(matchFrom[2]) - 1,
+    Number(matchFrom[3])
+  );
+  const toUtc = Date.UTC(
+    Number(matchTo[1]),
+    Number(matchTo[2]) - 1,
+    Number(matchTo[3])
+  );
+  return Math.round((toUtc - fromUtc) / (1000 * 60 * 60 * 24));
+}
+
+export function hasReadToday(
+  lastReadDateIso: string | null | undefined,
+  todayIso: string = getLocalDateIso()
+): boolean {
+  if (!lastReadDateIso) return false;
+  return calendarDaysBetweenIso(lastReadDateIso, todayIso) === 0;
+}
+
+export function getEffectiveStreak(
+  storedStreak: number,
+  lastReadDateIso: string | null | undefined,
+  todayIso: string = getLocalDateIso()
+): number {
+  const normalizedStreak = Number.isFinite(storedStreak) ? Math.floor(storedStreak) : 0;
+  if (normalizedStreak <= 0 || !lastReadDateIso) {
+    return 0;
+  }
+  const diffDays = calendarDaysBetweenIso(lastReadDateIso, todayIso);
+  if (diffDays === 0 || diffDays === 1) {
+    return normalizedStreak;
+  }
+  return 0;
+}
+
 export function updateStreakOnRead(
   currentStreak: number,
   lastReadDateIso: string | null,
-  todayIso: string
+  todayIso: string = getLocalDateIso()
 ): { streak: number; lastReadDate: string } {
+  const normalizedStreak = Number.isFinite(currentStreak) ? Math.max(0, Math.floor(currentStreak)) : 0;
   if (!lastReadDateIso) {
-    return { streak: Math.max(1, currentStreak), lastReadDate: todayIso };
+    return { streak: 1, lastReadDate: todayIso };
   }
-  if (lastReadDateIso === todayIso) {
-    return { streak: Math.max(1, currentStreak), lastReadDate: todayIso };
+  const diffDays = calendarDaysBetweenIso(lastReadDateIso, todayIso);
+  if (diffDays === 0) {
+    return { streak: Math.max(1, normalizedStreak), lastReadDate: todayIso };
   }
-  const prev = new Date(`${lastReadDateIso}T00:00:00`);
-  const curr = new Date(`${todayIso}T00:00:00`);
-  const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
   if (diffDays === 1) {
-    return { streak: currentStreak + 1, lastReadDate: todayIso };
+    return { streak: Math.max(1, normalizedStreak) + 1, lastReadDate: todayIso };
   }
   return { streak: 1, lastReadDate: todayIso };
 }

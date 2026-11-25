@@ -55,7 +55,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="hidden sm:inline text-xs text-[#556173] dark:text-[#A3B0C2] tabular-nums mr-0.5 whitespace-nowrap">
-            {streak} dias
+            {streak} {streak === 1 ? 'dia' : 'dias'}
           </span>
           <PWAInstallButton compact shortMobileLabel bibleVersion={bibleVersion} />
           <button

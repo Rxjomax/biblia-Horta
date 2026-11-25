@@ -39,6 +39,7 @@ interface PlansViewProps {
   planProgress: Record<string, number[]>;
   onToggleDayComplete: (planId: string, day: number) => void;
   streak: number;
+  readToday?: boolean;
   challengeComments: CommunityChallengeComment[];
   onAddChallengeComment: (
     author: string,
@@ -57,6 +58,7 @@ export const PlansView: React.FC<PlansViewProps> = ({
   planProgress,
   onToggleDayComplete,
   streak,
+  readToday = false,
   challengeComments,
   onAddChallengeComment,
   onOpenBibleChapter,
@@ -168,8 +170,15 @@ export const PlansView: React.FC<PlansViewProps> = ({
             <span className="text-xs text-[#556173] dark:text-[#A3B0C2] block leading-none">
               Sequência atual
             </span>
-            <span className="font-display text-lg font-semibold text-[#13294B] dark:text-[#F2EFE9] tabular-nums">
+            <span className="font-display text-lg font-semibold text-[#13294B] dark:text-[#F2EFE9] tabular-nums block mt-0.5">
               {streak} {streak === 1 ? 'dia seguido' : 'dias seguidos'}
+            </span>
+            <span className="text-[11px] text-[#556173] dark:text-[#A3B0C2] block leading-tight mt-0.5">
+              {readToday
+                ? 'Leitura de hoje registada'
+                : streak > 0
+                  ? 'Leia hoje para manter a sequência'
+                  : 'Leia a Bíblia ou conclua um dia para começar'}
             </span>
           </div>
         </div>

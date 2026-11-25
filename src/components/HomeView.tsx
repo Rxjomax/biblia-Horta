@@ -43,6 +43,7 @@ interface HomeViewProps {
   bibleVersion: BibleVersionId;
   primaryCorpus?: BibleCorpus;
   streak: number;
+  readToday?: boolean;
   activePlanId: string;
   planProgress: Record<string, number[]>;
   onToggleDayComplete: (planId: string, day: number) => void;
@@ -77,6 +78,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   bibleVersion,
   primaryCorpus,
   streak,
+  readToday = false,
   activePlanId,
   planProgress,
   onToggleDayComplete,
@@ -223,10 +225,27 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {greeting}, comunidade da IEB Horta
             </h1>
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-[#556173] dark:text-[#A3B0C2] shrink-0">
-            <span className="tabular-nums">
-              Sequência: <strong className="text-[#13294B] dark:text-[#D4A84E]">{streak} dias</strong>
-            </span>
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-[#556173] dark:text-[#A3B0C2] shrink-0">
+            <button
+              type="button"
+              onClick={onOpenPlansTab}
+              title={
+                readToday
+                  ? 'Leitura de hoje registada'
+                  : streak > 0
+                    ? 'Leia hoje para manter a sua sequência'
+                    : 'Abra a Bíblia ou conclua um dia de plano para iniciar a sequência'
+              }
+              className="tabular-nums hover:underline min-h-[44px] inline-flex items-center gap-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D] rounded-lg"
+            >
+              <span>Sequência:</span>
+              <strong className="text-[#13294B] dark:text-[#D4A84E]">
+                {streak} {streak === 1 ? 'dia' : 'dias'}
+              </strong>
+              {readToday && (
+                <Check className="w-3.5 h-3.5 text-[#1F5C3A] dark:text-[#6EE7B7] shrink-0" aria-hidden="true" />
+              )}
+            </button>
             <span aria-hidden="true">·</span>
             <button
               type="button"

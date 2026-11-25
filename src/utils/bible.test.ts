@@ -4,8 +4,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   calculatePlanProgress,
+  calendarDaysBetweenIso,
   extractBibleReferences,
+  getEffectiveStreak,
+  getLocalDateIso,
   getTimeGreeting,
+  hasReadToday,
   parseBibleReference,
   searchLoadedBible,
   updateStreakOnRead,
@@ -88,7 +92,25 @@ test('calculatePlanProgress calculates accurate percentages', () => {
   assert.equal(p3.percentage, Math.round((3 / plan.days.length) * 100));
 });
 
-test('updateStreakOnRead increments consecutive days and resets after gap', () => {
+test('updateStreakOnRead and getEffectiveStreak handle consecutive days, expiration, and fresh starts accurately', () => {
+  assert.equal(getLocalDateIso(new Date(2026, 10, 25, 23, 45)), '2026-11-25');
+  assert.equal(calendarDaysBetweenIso('2026-03-28', '2026-03-29'), 1); // Across EU DST switch
+  assert.equal(calendarDaysBetweenIso('2026-12-31', '2027-01-01'), 1);
+
+  // Active streak checks
+  assert.equal(getEffectiveStreak(5, '2026-11-25', '2026-11-25'), 5);
+  assert.equal(getEffectiveStreak(5, '2026-11-24', '2026-11-25'), 5);
+  assert.equal(getEffectiveStreak(5, '2026-11-23', '2026-11-25'), 0); // Missed yesterday -> expired
+  assert.equal(getEffectiveStreak(5, '2026-11-15', '2026-11-25'), 0); // Stale legacy seed -> 0
+  assert.equal(getEffectiveStreak(5, null, '2026-11-25'), 0);
+
+  assert.equal(hasReadToday('2026-11-25', '2026-11-25'), true);
+  assert.equal(hasReadToday('2026-11-24', '2026-11-25'), false);
+
+  // First-ever reading starts at 1 even if stale number passed without date
+  const freshStart = updateStreakOnRead(5, null, '2026-11-25');
+  assert.deepEqual(freshStart, { streak: 1, lastReadDate: '2026-11-25' });
+
   const sameDay = updateStreakOnRead(4, '2026-11-16', '2026-11-16');
   assert.equal(sameDay.streak, 4);
 

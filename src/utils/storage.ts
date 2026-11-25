@@ -15,6 +15,7 @@ import {
   INITIAL_PRAYER_REQUESTS,
   INITIAL_SERMON_NOTES,
 } from '../data/churchData';
+import { getEffectiveStreak } from './bible';
 
 const PREFIX = 'iebhorta_v1_';
 
@@ -124,8 +125,15 @@ export function loadPersistedState(): PersistedAppState {
       'salmos-proverbios': [1],
     }),
     activePlanId: readJson<string>('activePlanId', 'vencer-medo-7'),
-    streak: readJson<number>('streak', 5),
-    lastReadDate: readJson<string | null>('lastReadDate', '2026-11-15'),
+    ...(() => {
+      const rawStreak = readJson<number>('streak', 0);
+      const rawLastReadDate = readJson<string | null>('lastReadDate', null);
+      const activeStreak = getEffectiveStreak(rawStreak, rawLastReadDate);
+      return {
+        streak: activeStreak,
+        lastReadDate: activeStreak > 0 ? rawLastReadDate : null,
+      };
+    })(),
     challengeComments: readJson<CommunityChallengeComment[]>(
       'challengeComments',
       INITIAL_CHALLENGE_COMMENTS

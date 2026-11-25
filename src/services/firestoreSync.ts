@@ -131,7 +131,7 @@ const DEFAULT_WORKSPACE_SEED: CloudWorkspaceSeed = {
   bibleVersion: 'NVI',
   secondaryVersion: 'ARC',
   activePlanId: 'vencer-medo-7',
-  streak: 1,
+  streak: 0,
   lastReadDate: null,
 };
 
