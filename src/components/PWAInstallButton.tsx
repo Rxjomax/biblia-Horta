@@ -9,11 +9,13 @@ import {
   ExternalLink,
   HardDriveDownload,
   PlusSquare,
+  RefreshCw,
   Share,
   Smartphone,
   X,
 } from 'lucide-react';
 import { OFFICIAL_APP_URL } from '../data/churchData';
+import { useAppUpdater } from '../hooks/useAppUpdater';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import type { BibleVersionId } from '../types';
 
@@ -63,6 +65,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   const {
     isInstallable,
     isInstalled,
+    isInstalledOnDevice,
     isIOS,
     isIPad,
     iosBrowser,
@@ -74,6 +77,14 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
     install,
     downloadBibleForOffline,
   } = usePWAInstall();
+
+  const {
+    isChecking: isCheckingUpdate,
+    isUpdating: isApplyingUpdate,
+    statusMessage: updateStatusMessage,
+    statusTone: updateStatusTone,
+    checkForUpdates,
+  } = useAppUpdater();
 
   const [showGuide, setShowGuide] = useState(false);
   const [guidePlatform, setGuidePlatform] = useState<GuidePlatform>(isIOS ? 'ios' : 'android');
@@ -421,6 +432,49 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                       <span>{copiedUrl ? 'Ligação copiada!' : 'Copiar ligação para enviar para o telemóvel'}</span>
                     </button>
                   )}
+
+                  <div className="rounded-xl border border-[#141E2E]/12 dark:border-white/12 bg-[#F4F0E8]/75 dark:bg-[#0C1320] p-3.5 space-y-2">
+                    <p className="text-xs font-semibold text-[#141E2E] dark:text-[#F2EFE9]">
+                      {isInstalledOnDevice
+                        ? 'A aplicação já está instalada neste telemóvel'
+                        : 'Já instalou antes e quer atualizar?'}
+                    </p>
+                    <p className="text-xs leading-relaxed text-[#3F4B5E] dark:text-[#C8D1DE]">
+                      Não precisa de desinstalar nem reinstalar. Se o telemóvel avisar que a aplicação já está instalada, basta abrir o ícone existente da <strong>IEB Horta</strong> — ela atualiza-se automaticamente sempre que há novidades.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={isCheckingUpdate || isApplyingUpdate}
+                      onClick={() => void checkForUpdates({ manual: true })}
+                      className="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-[#141E2E]/15 dark:border-white/15 bg-[#FAF8F4] dark:bg-[#131E30] text-xs font-medium text-[#13294B] dark:text-[#D4A84E] inline-flex items-center justify-center gap-2 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60"
+                    >
+                      <RefreshCw
+                        className={`w-3.5 h-3.5 shrink-0 ${
+                          isCheckingUpdate || isApplyingUpdate ? 'motion-safe:animate-spin' : ''
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <span>
+                        {isApplyingUpdate
+                          ? 'A atualizar aplicação...'
+                          : isCheckingUpdate
+                            ? 'A procurar atualizações...'
+                            : 'Verificar Atualizações Agora'}
+                      </span>
+                    </button>
+                    {updateStatusMessage && (
+                      <p
+                        role="status"
+                        className={`text-xs ${
+                          updateStatusTone === 'error'
+                            ? 'text-[#9A3412] dark:text-[#FCA5A5]'
+                            : 'text-[#1F5C3A] dark:text-[#6EE7B7]'
+                        }`}
+                      >
+                        {updateStatusMessage}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
+import { AppUpdateBanner } from './components/AppUpdateBanner';
 import { BibleView } from './components/BibleView';
 import { CommunityView } from './components/CommunityView';
 import { DevotionalCarouselModal } from './components/DevotionalCarouselModal';
@@ -932,6 +933,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#141E2E] dark:bg-[#0C1320] dark:text-[#F2EFE9] transition-colors">
       <OfflineIndicator />
+      <AppUpdateBanner />
 
       <Navigation
         activeTab={activeTab}

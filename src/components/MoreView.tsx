@@ -32,6 +32,7 @@ import type {
   VerseNote,
   VisitorSubmission,
 } from '../types';
+import { useAppUpdater } from '../hooks/useAppUpdater';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import type {
   NotificationPermissionState,
@@ -113,6 +114,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
 
   const {
     isInstalled,
+    isInstalledOnDevice,
     isInIframe,
     swReady,
     offlineVersions,
@@ -120,6 +122,17 @@ export const MoreView: React.FC<MoreViewProps> = ({
     offlineStatusMessage,
     downloadBibleForOffline,
   } = usePWAInstall();
+
+  const {
+    currentBuildLabel,
+    updateAvailable,
+    isChecking: isCheckingUpdate,
+    isUpdating: isApplyingUpdate,
+    statusMessage: updateStatusMessage,
+    statusTone: updateStatusTone,
+    checkForUpdates,
+    applyUpdate,
+  } = useAppUpdater();
 
   const [testReminderKind, setTestReminderKind] = useState<ReminderKind>('daily-verse');
   const [isTestingReminder, setIsTestingReminder] = useState(false);
@@ -776,24 +789,34 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 Tema e Aplicação no Telemóvel
               </h2>
               <p className="text-sm text-[#3F4B5E] dark:text-[#C8D1DE] mt-1">
-                Instale a IEB Horta no telemóvel, guarde a Bíblia para ler sem internet e alterne o modo de leitura.
+                Instale a IEB Horta no telemóvel, receba atualizações automáticas sem desinstalar e guarde a Bíblia para ler sem internet.
               </p>
             </div>
 
             <div className="rounded-xl border border-[#141E2E]/10 dark:border-white/10 bg-[#F4F0E8]/70 dark:bg-[#0C1320]/70 p-3.5 space-y-2 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[#556173] dark:text-[#A3B0C2]">Estado no dispositivo</span>
-                <span className="font-medium text-[#141E2E] dark:text-[#F2EFE9]">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-[#556173] dark:text-[#A3B0C2] shrink-0">Estado no dispositivo</span>
+                <span className="font-medium text-right text-[#141E2E] dark:text-[#F2EFE9]">
                   {isInstalled
                     ? 'Instalada (Ecrã Principal)'
-                    : swReady
-                      ? 'Pronta para instalar (PWA ativa)'
-                      : 'Aplicação web pronta'}
+                    : isInstalledOnDevice
+                      ? 'Já instalada neste telemóvel'
+                      : swReady
+                        ? 'Pronta para instalar (PWA ativa)'
+                        : 'Aplicação web pronta'}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[#556173] dark:text-[#A3B0C2]">Bíblias offline guardadas</span>
-                <span className="font-medium text-[#141E2E] dark:text-[#F2EFE9]">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-[#556173] dark:text-[#A3B0C2] shrink-0">Atualizações</span>
+                <span className="font-medium text-right text-[#1F5C3A] dark:text-[#6EE7B7] tabular-nums">
+                  {updateAvailable
+                    ? 'Nova versão pronta'
+                    : `Automáticas ativas · v. ${currentBuildLabel}`}
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-[#556173] dark:text-[#A3B0C2] shrink-0">Bíblias offline guardadas</span>
+                <span className="font-medium text-right text-[#141E2E] dark:text-[#F2EFE9]">
                   {offlineVersions.length > 0 ? offlineVersions.join(', ') : 'Nenhuma ainda'}
                 </span>
               </div>
@@ -801,6 +824,33 @@ export const MoreView: React.FC<MoreViewProps> = ({
 
             <div className="flex flex-wrap gap-3">
               <PWAInstallButton bibleVersion={bibleVersion} />
+
+              <button
+                type="button"
+                disabled={isCheckingUpdate || isApplyingUpdate}
+                onClick={() =>
+                  void (updateAvailable
+                    ? applyUpdate({ clearAppShellCache: true })
+                    : checkForUpdates({ manual: true }))
+                }
+                className="min-h-[48px] px-4 py-2.5 rounded-xl border border-[#141E2E]/15 dark:border-white/15 bg-[#F4F0E8]/70 dark:bg-[#0C1320] text-sm font-medium inline-flex items-center gap-2 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8862D]"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 text-[#8C6218] dark:text-[#D4A84E] shrink-0 ${
+                    isCheckingUpdate || isApplyingUpdate ? 'motion-safe:animate-spin' : ''
+                  }`}
+                  aria-hidden="true"
+                />
+                <span>
+                  {isApplyingUpdate
+                    ? 'A atualizar...'
+                    : isCheckingUpdate
+                      ? 'A verificar...'
+                      : updateAvailable
+                        ? 'Atualizar Aplicação Agora'
+                        : 'Procurar Atualizações'}
+                </span>
+              </button>
 
               <button
                 type="button"
@@ -849,6 +899,19 @@ export const MoreView: React.FC<MoreViewProps> = ({
                   <span>Abrir {OFFICIAL_APP_URL.replace(/^https?:\/\/|\/$/g, '')} em separador próprio para instalar →</span>
                 </a>
               </div>
+            )}
+
+            {updateStatusMessage && (
+              <p
+                className={`text-xs font-medium ${
+                  updateStatusTone === 'error'
+                    ? 'text-[#9A3412] dark:text-[#FCA5A5]'
+                    : 'text-[#1F5C3A] dark:text-[#6EE7B7]'
+                }`}
+                role="status"
+              >
+                {updateStatusMessage}
+              </p>
             )}
 
             {offlineStatusMessage && (

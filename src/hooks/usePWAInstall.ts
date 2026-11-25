@@ -55,6 +55,7 @@ export function detectPlatformFromNavigator(
 interface PWAStoreState {
   deferredPrompt: BeforeInstallPromptEvent | null;
   isInstalled: boolean;
+  isInstalledOnDevice: boolean;
   isIOS: boolean;
   isIPad: boolean;
   iosBrowser: IOSBrowserKind;
@@ -103,6 +104,7 @@ const platform = detectPlatform();
 let state: PWAStoreState = {
   deferredPrompt: null,
   isInstalled: detectStandalone(),
+  isInstalledOnDevice: detectStandalone(),
   isIOS: platform.isIOS,
   isIPad: platform.isIPad,
   iosBrowser: platform.iosBrowser,
@@ -160,9 +162,29 @@ export function initPWAListeners(): void {
 
   const mediaQuery = window.matchMedia('(display-mode: standalone)');
   const updateStandalone = () => {
-    setState({ isInstalled: detectStandalone() });
+    const standalone = detectStandalone();
+    setState({
+      isInstalled: standalone,
+      isInstalledOnDevice: standalone || state.isInstalledOnDevice,
+    });
   };
   mediaQuery.addEventListener?.('change', updateStandalone);
+
+  const navWithRelatedApps = navigator as Navigator & {
+    getInstalledRelatedApps?: () => Promise<Array<{ platform?: string; url?: string; id?: string }>>;
+  };
+  if (typeof navWithRelatedApps.getInstalledRelatedApps === 'function') {
+    navWithRelatedApps
+      .getInstalledRelatedApps()
+      .then((apps) => {
+        if (Array.isArray(apps) && apps.length > 0) {
+          setState({ isInstalledOnDevice: true });
+        }
+      })
+      .catch(() => {
+        // Unsupported or blocked in this context
+      });
+  }
 
   window.addEventListener('beforeinstallprompt', (e: Event) => {
     e.preventDefault();
@@ -172,6 +194,7 @@ export function initPWAListeners(): void {
   window.addEventListener('appinstalled', () => {
     setState({
       isInstalled: true,
+      isInstalledOnDevice: true,
       deferredPrompt: null,
       offlineStatusMessage: 'Aplicação instalada no dispositivo com sucesso.',
     });
@@ -274,6 +297,7 @@ export function usePWAInstall() {
   return {
     isInstallable: !!snapshot.deferredPrompt,
     isInstalled: snapshot.isInstalled,
+    isInstalledOnDevice: snapshot.isInstalledOnDevice,
     isIOS: snapshot.isIOS,
     isIPad: snapshot.isIPad,
     iosBrowser: snapshot.iosBrowser,

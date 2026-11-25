@@ -7,11 +7,41 @@ import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
   let hmrDisabled = process.env.DISABLE_HMR === 'true';
+  const appBuildTime = new Date().toISOString();
+  const appBuildId =
+    process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 8) ||
+    process.env.VERCEL_DEPLOYMENT_ID?.slice(-8) ||
+    appBuildTime.replace(/[-:TZ.]/g, '').slice(0, 14);
+  const versionPayload = JSON.stringify({
+    buildId: appBuildId,
+    builtAt: appBuildTime,
+  });
 
   return {
+    define: {
+      __APP_BUILD_ID__: JSON.stringify(appBuildId),
+      __APP_BUILD_TIME__: JSON.stringify(appBuildTime),
+    },
     plugins: [
       react(),
       tailwindcss(),
+      {
+        name: 'emit-app-version-manifest',
+        configureServer(server) {
+          server.middlewares.use('/version.json', (_req, res) => {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.end(versionPayload);
+          });
+        },
+        closeBundle(error?: Error): void {
+          if (error) return;
+          const distDir = path.resolve(__dirname, 'dist');
+          if (fs.existsSync(distDir)) {
+            fs.writeFileSync(path.join(distDir, 'version.json'), versionPayload, 'utf-8');
+          }
+        },
+      },
       {
         name: 'disable-vite-client-ws-when-hmr-off',
         apply: 'serve',
@@ -58,6 +88,13 @@ export default defineConfig(() => {
           start_url: '/',
           scope: '/',
           lang: 'pt-PT',
+          prefer_related_applications: false,
+          related_applications: [
+            {
+              platform: 'webapp',
+              url: 'https://biblia-horta.vercel.app/manifest.webmanifest',
+            },
+          ],
           icons: [
             {
               src: '/pwa-192x192.png',
@@ -80,11 +117,22 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff,woff2}'],
-          globIgnores: ['**/assets/aistudio/**'],
-          navigateFallbackDenylist: [/^\/api\//, /^\/bibles\//],
+          globIgnores: ['**/assets/aistudio/**', '**/version.json'],
+          navigateFallbackDenylist: [/^\/api\//, /^\/bibles\//, /^\/version\.json$/],
           runtimeCaching: [
+            {
+              urlPattern: /\/version\.json(\?.*)?$/i,
+              handler: 'NetworkOnly',
+            },
+            {
+              urlPattern: /\/api\/.*/i,
+              handler: 'NetworkOnly',
+            },
             {
               urlPattern: /\/bibles\/.*\.json$/i,
               handler: 'CacheFirst',

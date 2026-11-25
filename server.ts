@@ -579,6 +579,16 @@ async function startServer() {
         setHeaders: (res, filePath) => {
           if (filePath.endsWith('.webmanifest')) {
             res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+            res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+          } else if (
+            filePath.endsWith('sw.js') ||
+            filePath.endsWith('registerSW.js') ||
+            filePath.endsWith('version.json') ||
+            filePath.endsWith('index.html')
+          ) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
           }
         },
       })
@@ -590,6 +600,7 @@ async function startServer() {
       }
       const indexFile = path.join(distDir, 'index.html');
       if (fs.existsSync(indexFile)) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.sendFile(indexFile);
       } else {
         res.status(404).send('Build not found');
